@@ -6,16 +6,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://unpkg.com/@livechat/agent-app-sdk@1.6.3/dist/agentapp.umd.min.js"></script>
   <style>
-    body { font-family: system-ui, Arial, sans-serif; margin: 0; }
+    body { font-family: system-ui, Arial, sans-serif; margin: 0; padding: 20px; }
+    .fallback { color: #555; }
   </style>
 </head>
 <body>
+  <!-- Fallback content for direct access -->
+  <div class="fallback">
+    <h2>Multilogin Auto-Tagger</h2>
+    <p>Widget placeholder is working ✅</p>
+  </div>
+
   <script>
     (async () => {
       try {
         const widget = await LiveChat.createDetailsWidget();
 
-        // Render the native section with a button
+        // Remove fallback once SDK is ready
+        document.querySelector(".fallback")?.remove();
+
         async function render(statusText = "Ready") {
           await widget.modifySection({
             sections: [
@@ -31,7 +40,6 @@
         }
         await render();
 
-        // Handle button click
         widget.on("customer_details_section_button_click", async ({ buttonId }) => {
           if (buttonId !== "addTagsBtn") return;
           try {
@@ -46,14 +54,13 @@
               return;
             }
 
-            // For now just display IDs, later we will call n8n webhook
             await render(`✅ Chat: ${chatId}, Thread: ${threadId}, Plan: ${plan}`);
           } catch (e) {
             await render("❌ Error in widget");
           }
         });
       } catch (e) {
-        // Fail silently if SDK init fails
+        console.error("Widget init failed", e);
       }
     })();
   </script>
