@@ -48,7 +48,7 @@
         return;
       }
 
-      // === Add AutoTaggingTest ===
+      // === Add AutoTaggingTest (с profile) ===
       btnAdd.addEventListener("click", async () => {
         try {
           setStatus("Sending request…");
@@ -67,18 +67,19 @@
             body: JSON.stringify({
               chat_id: chatId,
               thread_id: threadId,
-              tag: "AutoTaggingTest"
+              tag: "AutoTaggingTest",
+              profile // <== тут уходит всё
             })
           });
 
-          setStatus(resp.ok ? "✅ Tag AutoTaggingTest sent" : "❌ Error " + resp.status, resp.ok ? "ok" : "err");
+          setStatus(resp.ok ? "✅ Tag + profile sent" : "❌ Error " + resp.status, resp.ok ? "ok" : "err");
         } catch (e) {
           setStatus("❌ Request failed", "err");
           console.error(e);
         }
       });
 
-      // === Get user info ===
+      // === Get user info (для отладки) ===
       btnInfo.addEventListener("click", async () => {
         try {
           setStatus("Fetching user info…");
