@@ -6,61 +6,84 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://unpkg.com/@livechat/agent-app-sdk@1.6.3/dist/agentapp.umd.min.js"></script>
   <style>
-    body { font-family: system-ui, Arial, sans-serif; margin: 0; padding: 20px; }
-    .fallback { color: #555; }
+    body { font-family: system-ui, Arial, sans-serif; margin: 0; background: #f6f7fb; }
+    .card { max-width: 560px; margin: 24px; padding: 16px 18px; background:#fff; border-radius:12px; box-shadow:0 4px 14px rgba(0,0,0,.08); }
+    .row { display:flex; gap:8px; align-items:center; margin-top:12px; }
+    button { padding:8px 12px; border-radius:8px; border:1px solid #ddd; background:#fff; cursor:pointer; }
+    pre { background:#f0f3f9; padding:10px; border-radius:8px; overflow:auto; }
+    .ok { color:#127e00 } .err { color:#b00020 }
   </style>
 </head>
 <body>
-  <!-- Fallback content for direct access -->
-  <div class="fallback">
-    <h2>Multilogin Auto-Tagger</h2>
-    <p>Widget placeholder is working ✅</p>
+  <div class="card">
+    <h3>Multilogin Auto-Tagger</h3>
+    <div id="status">Widget placeholder is working ✅</div>
+    <div class="row">
+      <button id="initBtn">Init SDK</button>
+      <button id="infoBtn" disabled>Get chat info</button>
+    </div>
+    <pre id="log" style="margin-top:12px;display:none;"></pre>
   </div>
 
   <script>
+    const statusEl = document.getElementById('status');
+    const logEl = document.getElementById('log');
+    const initBtn = document.getElementById('initBtn');
+    const infoBtn = document.getElementById('infoBtn');
+
+    let widget = null;
+
+    function setStatus(text, cls="") {
+      statusEl.className = cls;
+      statusEl.textContent = text;
+    }
+    function log(obj) {
+      logEl.style.display = 'block';
+      logEl.textContent = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+    }
+
+    initBtn.addEventListener('click', async () => {
+      try {
+        if (!window.LiveChat) {
+          setStatus('SDK object not found on window.LiveChat', 'err');
+          return;
+        }
+        setStatus('Initializing SDK…');
+        widget = await LiveChat.createDetailsWidget();
+        setStatus('SDK initialized ✓', 'ok');
+        infoBtn.disabled = false;
+      } catch (e) {
+        setStatus('SDK init failed ✗', 'err');
+        log(e?.message || String(e));
+      }
+    });
+
+    infoBtn.addEventListener('click', async () => {
+      try {
+        if (!widget) { setStatus('SDK not initialized', 'err'); return; }
+        setStatus('Reading chat info…');
+        const profile = await widget.getCustomerProfile();
+        const chatId = profile?.chat?.chat_id || '(none)';
+        const threadId = profile?.chat?.id || '(none)';
+        const plan = profile?.customVariables?.Plan ?? '(no plan)';
+        setStatus('Success ✓', 'ok');
+        log({ chatId, threadId, plan, rawProfile: profile });
+      } catch (e) {
+        setStatus('Failed to read chat info ✗', 'err');
+        log(e?.message || String(e));
+      }
+    });
+
+    // Optionally auto-init when embedded inside Agent App
     (async () => {
       try {
-        const widget = await LiveChat.createDetailsWidget();
-
-        // Remove fallback once SDK is ready
-        document.querySelector(".fallback")?.remove();
-
-        async function render(statusText = "Ready") {
-          await widget.modifySection({
-            sections: [
-              {
-                title: "Auto Tags",
-                components: [
-                  { type: "button", id: "addTagsBtn", label: "Add tags" },
-                  { type: "text", text: statusText }
-                ]
-              }
-            ]
-          });
+        if (window.LiveChat) {
+          widget = await LiveChat.createDetailsWidget();
+          setStatus('SDK initialized automatically ✓', 'ok');
+          infoBtn.disabled = false;
         }
-        await render();
-
-        widget.on("customer_details_section_button_click", async ({ buttonId }) => {
-          if (buttonId !== "addTagsBtn") return;
-          try {
-            await render("Processing…");
-            const profile = await widget.getCustomerProfile();
-            const chatId = profile?.chat?.chat_id;
-            const threadId = profile?.chat?.id;
-            const plan = profile?.customVariables?.Plan ?? "(no plan)";
-
-            if (!chatId || !threadId) {
-              await render("❌ No chat_id / thread_id");
-              return;
-            }
-
-            await render(`✅ Chat: ${chatId}, Thread: ${threadId}, Plan: ${plan}`);
-          } catch (e) {
-            await render("❌ Error in widget");
-          }
-        });
       } catch (e) {
-        console.error("Widget init failed", e);
+        // stay in placeholder mode
       }
     })();
   </script>
