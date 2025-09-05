@@ -2,79 +2,96 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <title>Multilogin Auto-Tagger / Summary</title>
+  <title>Multilogin AI Helper</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <script src="https://unpkg.com/@livechat/agent-app-sdk@1.6.3/dist/agentapp.umd.min.js"></script>
   <style>
-    body { font-family: system-ui, Arial, sans-serif; margin: 0; background: #f6f7fb; }
-    .card { max-width: 760px; margin: 24px auto; padding: 18px; background:#fff; border-radius:12px; box-shadow:0 6px 18px rgba(0,0,0,.06); }
-    h3 { margin: 0 0 12px 0; }
-    .controls { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:20px; justify-content:center; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; background: #fff; }
+    .card { max-width: 760px; margin: 20px auto; padding: 20px; background: #fff; border: 1px solid #e1e5e9; border-radius: 12px; }
+    h3 { margin: 0 0 16px 0; font-size: 16px; font-weight: 500; color: #1d2129; }
+    .controls { display: flex; gap: 8px; margin-bottom: 16px; }
     button { 
-      padding:12px 20px; 
-      border-radius:12px; 
-      border:none; 
-      background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-      color:white; 
-      cursor:pointer; 
-      font-weight:600; 
-      font-size:14px;
-      transition:all 0.3s ease;
-      box-shadow:0 4px 15px rgba(102, 126, 234, 0.3);
+      padding: 8px 12px; 
+      border: 1px solid #ccd0d5; 
+      border-radius: 6px;
+      background: #f5f6f7; 
+      color: #1c1e21; 
+      cursor: pointer; 
+      font-size: 14px;
+      font-weight: 500;
     }
     button:hover {
-      transform:translateY(-2px);
-      box-shadow:0 6px 20px rgba(102, 126, 234, 0.4);
-    }
-    button:active {
-      transform:translateY(0);
+      background: #e4e6ea;
     }
     button:disabled {
-      background:#ccc;
-      cursor:not-allowed;
-      transform:none;
-      box-shadow:none;
+      background: #f5f6f7;
+      color: #bcc0c4;
+      cursor: not-allowed;
     }
-    #status { margin-top:8px; font-size:14px; color:#333; }
-    .ok { color:#127e00 } .err { color:#b00020 }
-    .summary-grid { display:grid; grid-template-columns: 1fr; gap:10px; margin-top:12px; }
-    .section { display:flex; flex-direction:column; gap:6px; position:relative; }
-    .field-header { display:flex; justify-content:space-between; align-items:center; }
-    label { font-weight:600; font-size:13px; }
+    #status { margin-top: 8px; font-size: 14px; color: #65676b; }
+    .ok { color: #42b883; } 
+    .err { color: #e41e3f; }
+    .summary-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 16px; }
+    .section { display: flex; flex-direction: column; gap: 6px; }
+    .field-header { display: flex; justify-content: space-between; align-items: center; }
+    label { font-weight: 500; font-size: 14px; color: #1d2129; }
     .copy-btn {
-      padding:4px 8px;
-      font-size:11px;
-      background:#f0f3f9;
-      border:1px solid #ddd;
-      border-radius:6px;
-      cursor:pointer;
-      color:#666;
-      transition:all 0.2s ease;
+      padding: 4px 8px;
+      font-size: 12px;
+      background: #f5f6f7;
+      border: 1px solid #ccd0d5;
+      border-radius: 4px;
+      cursor: pointer;
+      color: #65676b;
     }
     .copy-btn:hover {
-      background:#e3e7ef;
-      color:#333;
+      background: #e4e6ea;
     }
     .copy-btn.copied {
-      background:#d4edda;
-      color:#155724;
-      border-color:#c3e6cb;
+      background: #d3edcd;
+      color: #42b883;
+      border-color: #42b883;
     }
-    textarea { width:100%; min-height:84px; resize:vertical; padding:10px; border-radius:8px; border:1px solid #e3e7ef; background:#fbfdff; font-size:13px; }
-    textarea[readonly] { background:#f6f8fc; color:#111; }
-    .small { font-size:12px; color:#666; margin-top:6px; }
-    pre { background:#f0f3f9; padding:10px; border-radius:8px; overflow:auto; margin-top:12px; display:none; }
+    textarea { 
+      width: 100%; 
+      min-height: 80px; 
+      resize: vertical; 
+      padding: 8px; 
+      border: 1px solid #ccd0d5; 
+      border-radius: 6px;
+      background: #fff; 
+      font-size: 14px; 
+      font-family: inherit;
+    }
+    textarea[readonly] { 
+      background: #f5f6f7; 
+      color: #1c1e21; 
+    }
+    .small { 
+      font-size: 12px; 
+      color: #65676b; 
+      margin-top: 8px; 
+    }
+    pre { 
+      background: #f5f6f7; 
+      padding: 12px; 
+      overflow: auto; 
+      margin-top: 12px; 
+      display: none; 
+      border: 1px solid #ccd0d5;
+      font-size: 12px;
+    }
     
     /* Spinner styles */
     .spinner {
       display: inline-block;
-      width: 16px;
-      height: 16px;
-      border: 2px solid rgba(255,255,255,0.3);
+      width: 14px;
+      height: 14px;
+      border: 2px solid #ccd0d5;
       border-radius: 50%;
-      border-top-color: white;
-      animation: spin 1s ease-in-out infinite;
-      margin-right: 8px;
+      border-top-color: #1877f2;
+      animation: spin 1s linear infinite;
+      margin-right: 6px;
     }
     
     @keyframes spin {
@@ -83,7 +100,7 @@
     
     .loading {
        pointer-events: none;
-       opacity: 0.8;
+       opacity: 0.6;
      }
      
      /* Menu styles */
@@ -91,7 +108,7 @@
        display: flex;
        justify-content: space-between;
        align-items: center;
-       margin-bottom: 12px;
+       margin-bottom: 16px;
      }
      
      .menu-container {
@@ -102,17 +119,14 @@
      .menu-btn {
        background: none;
        border: none;
-       font-size: 18px;
+       font-size: 16px;
        cursor: pointer;
-       padding: 4px 8px;
-       border-radius: 4px;
-       color: #666;
-       transition: all 0.2s ease;
+       padding: 4px;
+       color: #65676b;
      }
      
      .menu-btn:hover {
-       background: #f0f3f9;
-       color: #333;
+       background: #f5f6f7;
      }
      
      .dropdown-menu {
@@ -120,12 +134,12 @@
        top: 100%;
        right: 0;
        background: white;
-       border: 1px solid #e3e7ef;
-       border-radius: 8px;
-       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-       min-width: 160px;
+       border: 1px solid #ccd0d5;
+       border-radius: 6px;
+       min-width: 150px;
        z-index: 1000;
        display: none;
+       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
      }
      
      .dropdown-menu.show {
@@ -140,32 +154,24 @@
        background: none;
        text-align: left;
        cursor: pointer;
-       font-size: 13px;
-       color: #333;
-       transition: background 0.2s ease;
+       font-size: 14px;
+       color: #1c1e21;
      }
      
      .dropdown-item:hover {
-       background: #f8f9fa;
-     }
-     
-     .dropdown-item:first-child {
-       border-radius: 8px 8px 0 0;
-     }
-     
-     .dropdown-item:last-child {
-       border-radius: 0 0 8px 8px;
+       background: #f5f6f7;
      }
   </style>
 </head>
 <body>
   <div class="card">
     <div class="widget-header">
-      <h3>Multilogin Auto-Tagger — AI Summary</h3>
+      <h3>Multilogin AI Helper</h3>
       <div class="menu-container">
         <button class="menu-btn" onclick="toggleMenu()">⋯</button>
         <div class="dropdown-menu" id="dropdownMenu">
-          <button class="dropdown-item" onclick="updateSummary()">🔄 Update Summary</button>
+          <button class="dropdown-item" onclick="updateSummary()">🔄 Update</button>
+          <button class="dropdown-item" onclick="copyAll()">📋 Copy all</button>
           <button class="dropdown-item" onclick="deleteSummary()">🗑️ Delete Summary</button>
         </div>
       </div>
@@ -187,7 +193,7 @@
       <div class="section">
         <div class="field-header">
           <label for="issueSummary">Issue summary</label>
-          <button class="copy-btn" onclick="copyToClipboard('issueSummary', this)">📋 Copy</button>
+          <button class="copy-btn" onclick="copyToClipboard('issueSummary', this)" title="Copy">📋</button>
         </div>
         <textarea id="issueSummary" readonly placeholder="Issue summary will appear here..."></textarea>
       </div>
@@ -195,13 +201,13 @@
       <div class="section">
         <div class="field-header">
           <label for="actionsTaken">Actions taken</label>
-          <button class="copy-btn" onclick="copyToClipboard('actionsTaken', this)">📋 Copy</button>
+          <button class="copy-btn" onclick="copyToClipboard('actionsTaken', this)" title="Copy">📋</button>
         </div>
         <textarea id="actionsTaken" readonly placeholder="Actions taken will appear here..."></textarea>
       </div>
     </div>
 
-    <div class="small">Note: нода summary вызывается на сервере, он сам вытянет историю по chat_id, сформирует summary и вернёт заполненные поля.</div>
+    
 
     <pre id="log"></pre>
   </div>
@@ -299,6 +305,32 @@
          }
        };
        
+       window.copyAll = function() {
+         document.getElementById('dropdownMenu').classList.remove('show');
+         const issueText = issueEl.value.trim();
+         const actionsText = actionsEl.value.trim();
+         
+         if (!issueText && !actionsText) {
+           setStatus('❌ No content to copy', 'error');
+           return;
+         }
+         
+         let combinedText = '';
+         if (issueText) {
+           combinedText += 'Issue Summary:\n' + issueText;
+         }
+         if (actionsText) {
+           if (combinedText) combinedText += '\n\n';
+           combinedText += 'Actions Taken:\n' + actionsText;
+         }
+         
+         navigator.clipboard.writeText(combinedText).then(() => {
+           setStatus('✅ All content copied to clipboard', 'ok');
+         }).catch(() => {
+           setStatus('❌ Failed to copy content', 'error');
+         });
+       };
+       
        function compactProfile(profile) {
         return {
           id: profile?.id,
@@ -317,9 +349,9 @@
       let widget;
       try {
         widget = await LiveChat.createDetailsWidget();
-        setStatus("SDK initialized ✓", "ok");
+        setStatus("Widget initialized ✓", "ok");
       } catch (err) {
-        setStatus("❌ SDK init failed", "err");
+        setStatus("❌ Widget init failed", "err");
         console.error(err);
         return;
       }
