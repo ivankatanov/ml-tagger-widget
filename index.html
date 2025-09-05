@@ -484,12 +484,21 @@
 
           setStatus("Sending summary request…");
 
+          // Map language codes to full English names
+          const languageMap = {
+            'en': 'English',
+            'ru': 'Russian',
+            'pt': 'Portuguese',
+            'zh': 'Chinese',
+            'vi': 'Vietnamese'
+          };
+
           const body = {
             chat_id: chatId,
             thread_id: threadId,
             profile: compactProfile(profile),
             client_time_zone: browserTimeZone,
-            language: languageSelect.value
+            summary_language: languageMap[languageSelect.value] || 'English'
           };
 
           const resp = await fetch(SUMMARY_WEBHOOK, {
