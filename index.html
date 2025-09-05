@@ -9,50 +9,195 @@
     body { font-family: system-ui, Arial, sans-serif; margin: 0; background: #f6f7fb; }
     .card { max-width: 760px; margin: 24px auto; padding: 18px; background:#fff; border-radius:12px; box-shadow:0 6px 18px rgba(0,0,0,.06); }
     h3 { margin: 0 0 12px 0; }
-    .controls { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
-    button { padding:8px 12px; border-radius:8px; border:1px solid #ddd; background:#fff; cursor:pointer; }
+    .controls { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:20px; justify-content:center; }
+    button { 
+      padding:12px 20px; 
+      border-radius:12px; 
+      border:none; 
+      background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+      color:white; 
+      cursor:pointer; 
+      font-weight:600; 
+      font-size:14px;
+      transition:all 0.3s ease;
+      box-shadow:0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+    button:hover {
+      transform:translateY(-2px);
+      box-shadow:0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+    button:active {
+      transform:translateY(0);
+    }
+    button:disabled {
+      background:#ccc;
+      cursor:not-allowed;
+      transform:none;
+      box-shadow:none;
+    }
     #status { margin-top:8px; font-size:14px; color:#333; }
     .ok { color:#127e00 } .err { color:#b00020 }
     .summary-grid { display:grid; grid-template-columns: 1fr; gap:10px; margin-top:12px; }
-    .section { display:flex; flex-direction:column; gap:6px; }
+    .section { display:flex; flex-direction:column; gap:6px; position:relative; }
+    .field-header { display:flex; justify-content:space-between; align-items:center; }
     label { font-weight:600; font-size:13px; }
+    .copy-btn {
+      padding:4px 8px;
+      font-size:11px;
+      background:#f0f3f9;
+      border:1px solid #ddd;
+      border-radius:6px;
+      cursor:pointer;
+      color:#666;
+      transition:all 0.2s ease;
+    }
+    .copy-btn:hover {
+      background:#e3e7ef;
+      color:#333;
+    }
+    .copy-btn.copied {
+      background:#d4edda;
+      color:#155724;
+      border-color:#c3e6cb;
+    }
     textarea { width:100%; min-height:84px; resize:vertical; padding:10px; border-radius:8px; border:1px solid #e3e7ef; background:#fbfdff; font-size:13px; }
     textarea[readonly] { background:#f6f8fc; color:#111; }
     .small { font-size:12px; color:#666; margin-top:6px; }
     pre { background:#f0f3f9; padding:10px; border-radius:8px; overflow:auto; margin-top:12px; display:none; }
+    
+    /* Spinner styles */
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 1s ease-in-out infinite;
+      margin-right: 8px;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .loading {
+       pointer-events: none;
+       opacity: 0.8;
+     }
+     
+     /* Menu styles */
+     .widget-header {
+       display: flex;
+       justify-content: space-between;
+       align-items: center;
+       margin-bottom: 12px;
+     }
+     
+     .menu-container {
+       position: relative;
+       display: inline-block;
+     }
+     
+     .menu-btn {
+       background: none;
+       border: none;
+       font-size: 18px;
+       cursor: pointer;
+       padding: 4px 8px;
+       border-radius: 4px;
+       color: #666;
+       transition: all 0.2s ease;
+     }
+     
+     .menu-btn:hover {
+       background: #f0f3f9;
+       color: #333;
+     }
+     
+     .dropdown-menu {
+       position: absolute;
+       top: 100%;
+       right: 0;
+       background: white;
+       border: 1px solid #e3e7ef;
+       border-radius: 8px;
+       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+       min-width: 160px;
+       z-index: 1000;
+       display: none;
+     }
+     
+     .dropdown-menu.show {
+       display: block;
+     }
+     
+     .dropdown-item {
+       display: block;
+       width: 100%;
+       padding: 8px 12px;
+       border: none;
+       background: none;
+       text-align: left;
+       cursor: pointer;
+       font-size: 13px;
+       color: #333;
+       transition: background 0.2s ease;
+     }
+     
+     .dropdown-item:hover {
+       background: #f8f9fa;
+     }
+     
+     .dropdown-item:first-child {
+       border-radius: 8px 8px 0 0;
+     }
+     
+     .dropdown-item:last-child {
+       border-radius: 0 0 8px 8px;
+     }
   </style>
 </head>
 <body>
   <div class="card">
-    <h3>Multilogin Auto-Tagger — AI Summary</h3>
+    <div class="widget-header">
+      <h3>Multilogin Auto-Tagger — AI Summary</h3>
+      <div class="menu-container">
+        <button class="menu-btn" onclick="toggleMenu()">⋯</button>
+        <div class="dropdown-menu" id="dropdownMenu">
+          <button class="dropdown-item" onclick="updateSummary()">🔄 Update Summary</button>
+          <button class="dropdown-item" onclick="deleteSummary()">🗑️ Delete Summary</button>
+        </div>
+      </div>
+    </div>
 
     <div class="controls">
-      <button id="addTagBtn">➕ Get Tags</button>
       <button id="summBtn">📝 Summarize</button>
-      <button id="infoBtn">👤 Get user info</button>
+      <button id="addTagBtn">🏷️ Get Tags</button>
+      <button id="infoBtn">👤 Get Info</button>
     </div>
 
     <div id="status">Widget loaded ✅</div>
+    <div id="loadingIndicator" style="display:none; text-align:center; margin:12px 0; color:#667eea; font-weight:600;">
+      <div class="spinner"></div>
+      Loading...
+    </div>
 
     <div class="summary-grid" aria-live="polite">
       <div class="section">
-        <label for="issueSummary">Issue summary: what the issue is and how it can be reproduced</label>
+        <div class="field-header">
+          <label for="issueSummary">Issue summary</label>
+          <button class="copy-btn" onclick="copyToClipboard('issueSummary', this)">📋 Copy</button>
+        </div>
         <textarea id="issueSummary" readonly placeholder="Issue summary will appear here..."></textarea>
       </div>
 
       <div class="section">
-        <label for="actionsTaken">Actions taken: what agents have tried or advised in this ticket</label>
+        <div class="field-header">
+          <label for="actionsTaken">Actions taken</label>
+          <button class="copy-btn" onclick="copyToClipboard('actionsTaken', this)">📋 Copy</button>
+        </div>
         <textarea id="actionsTaken" readonly placeholder="Actions taken will appear here..."></textarea>
-      </div>
-
-      <div class="section">
-        <label for="threadLink">[Optional] Thread link if escalated</label>
-        <textarea id="threadLink" readonly placeholder="Thread link (if available)"></textarea>
-      </div>
-
-      <div class="section">
-        <label for="nextActions">[Optional] Next actions: what needs to be done further</label>
-        <textarea id="nextActions" readonly placeholder="Next actions will appear here..."></textarea>
       </div>
     </div>
 
@@ -65,14 +210,13 @@
     (async () => {
       const statusEl = document.getElementById('status');
       const logEl = document.getElementById('log');
+      const loadingEl = document.getElementById('loadingIndicator');
       const btnAdd = document.getElementById('addTagBtn');
       const btnSumm = document.getElementById('summBtn');
       const btnInfo = document.getElementById('infoBtn');
 
       const issueEl = document.getElementById('issueSummary');
       const actionsEl = document.getElementById('actionsTaken');
-      const threadEl = document.getElementById('threadLink');
-      const nextEl = document.getElementById('nextActions');
 
       const SUMMARY_WEBHOOK = "https://npm.mlx.yt/webhook/livechat/summary";
       const TAGS_WEBHOOK = "https://npm.mlx.yt/webhook/livechat/add-tags";
@@ -87,7 +231,75 @@
         logEl.style.display = 'block';
         logEl.textContent = typeof v === 'string' ? v : JSON.stringify(v, null, 2);
       }
-      function compactProfile(profile) {
+      function showLoading() {
+        loadingEl.style.display = 'block';
+        [btnAdd, btnSumm, btnInfo].forEach(btn => btn.classList.add('loading'));
+      }
+      function hideLoading() {
+        loadingEl.style.display = 'none';
+        [btnAdd, btnSumm, btnInfo].forEach(btn => btn.classList.remove('loading'));
+      }
+      
+      // Copy to clipboard function
+      window.copyToClipboard = async function(elementId, buttonEl) {
+        try {
+          const textarea = document.getElementById(elementId);
+          const text = textarea.value;
+          
+          if (!text.trim()) {
+            setStatus("❌ Nothing to copy", "err");
+            return;
+          }
+          
+          await navigator.clipboard.writeText(text);
+          
+          // Visual feedback
+          const originalText = buttonEl.textContent;
+          buttonEl.textContent = '✅ Copied!';
+          buttonEl.classList.add('copied');
+          
+          setTimeout(() => {
+            buttonEl.textContent = originalText;
+            buttonEl.classList.remove('copied');
+          }, 2000);
+          
+          setStatus("✅ Copied to clipboard", "ok");
+        } catch (err) {
+          console.error('Failed to copy: ', err);
+          setStatus("❌ Failed to copy", "err");
+        }
+      };
+       
+       // Menu functions
+       window.toggleMenu = function() {
+         const menu = document.getElementById('dropdownMenu');
+         menu.classList.toggle('show');
+       };
+       
+       // Close menu when clicking outside
+       document.addEventListener('click', function(event) {
+         const menuContainer = document.querySelector('.menu-container');
+         if (!menuContainer.contains(event.target)) {
+           document.getElementById('dropdownMenu').classList.remove('show');
+         }
+       });
+       
+       window.updateSummary = function() {
+         document.getElementById('dropdownMenu').classList.remove('show');
+         // Trigger the same action as Summarize button
+         btnSumm.click();
+       };
+       
+       window.deleteSummary = function() {
+         document.getElementById('dropdownMenu').classList.remove('show');
+         if (confirm('Are you sure you want to delete the current summary?')) {
+           issueEl.value = '';
+           actionsEl.value = '';
+           setStatus('✅ Summary cleared', 'ok');
+         }
+       };
+       
+       function compactProfile(profile) {
         return {
           id: profile?.id,
           name: profile?.name,
@@ -115,6 +327,7 @@
       // Get Tags (пример, минимальный профиль)
       btnAdd.addEventListener("click", async () => {
         try {
+          showLoading();
           setStatus("Sending tag request…");
           const profile = await widget.getCustomerProfile();
           const chatId = profile?.chat?.chat_id || profile?.chat?.chatId || profile?.chat?.id || profile?.chat_id;
@@ -148,12 +361,15 @@
           setStatus("❌ Request failed", "err");
           console.error(e);
           showLog(e?.message || String(e));
+        } finally {
+          hideLoading();
         }
       });
 
       // Summarize flow: отправляем webhook, сервер вытягивает историю и возвращает готовое summary
       btnSumm.addEventListener("click", async () => {
         try {
+          showLoading();
           setStatus("Preparing summary request…");
           const profile = await widget.getCustomerProfile();
           const chatId = profile?.chat?.chat_id || profile?.chat?.chatId || profile?.chat?.id || profile?.chat_id;
@@ -193,8 +409,6 @@
           // Поддерживаем несколько вариантов ключей
           issueEl.value = data.issue_summary || data.issueSummary || data.issue || "";
           actionsEl.value = data.actions_taken || data.actionsTaken || data.actions || "";
-          threadEl.value = data.thread_link || data.threadLink || data.thread || "";
-          nextEl.value = data.next_actions || data.nextActions || data.next || "";
 
           setStatus("✅ Summary loaded", "ok");
           showLog(data);
@@ -202,12 +416,15 @@
           setStatus("❌ Summary failed", "err");
           console.error(e);
           showLog(e?.message || String(e));
+        } finally {
+          hideLoading();
         }
       });
 
       // Debug: show profile returned by SDK
       btnInfo.addEventListener("click", async () => {
         try {
+          showLoading();
           setStatus("Fetching user info…");
           const profile = await widget.getCustomerProfile();
           setStatus("✅ User info loaded", "ok");
@@ -215,6 +432,8 @@
         } catch (e) {
           setStatus("❌ Failed to get user info", "err");
           showLog(e?.message || String(e));
+        } finally {
+          hideLoading();
         }
       });
     })();
