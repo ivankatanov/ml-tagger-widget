@@ -1,66 +1,119 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <title>Multilogin Auto-Tagger</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8"/>
+  <title>Multilogin Auto-Tagger / Summary</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <script src="https://unpkg.com/@livechat/agent-app-sdk@1.6.3/dist/agentapp.umd.min.js"></script>
   <style>
     body { font-family: system-ui, Arial, sans-serif; margin: 0; background: #f6f7fb; }
-    .card { max-width: 560px; margin: 24px; padding: 16px 18px; background:#fff; border-radius:12px; box-shadow:0 4px 14px rgba(0,0,0,.08); }
-    button { padding:8px 12px; border-radius:8px; border:1px solid #ddd; background:#fff; cursor:pointer; margin-top:8px; }
-    #status { margin-top:12px; }
-    pre { background:#f0f3f9; padding:10px; border-radius:8px; overflow:auto; margin-top:12px; }
+    .card { max-width: 760px; margin: 24px auto; padding: 18px; background:#fff; border-radius:12px; box-shadow:0 6px 18px rgba(0,0,0,.06); }
+    h3 { margin: 0 0 12px 0; }
+    .controls { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+    button { padding:8px 12px; border-radius:8px; border:1px solid #ddd; background:#fff; cursor:pointer; }
+    #status { margin-top:8px; font-size:14px; color:#333; }
     .ok { color:#127e00 } .err { color:#b00020 }
+    .summary-grid { display:grid; grid-template-columns: 1fr; gap:10px; margin-top:12px; }
+    .section { display:flex; flex-direction:column; gap:6px; }
+    label { font-weight:600; font-size:13px; }
+    textarea { width:100%; min-height:84px; resize:vertical; padding:10px; border-radius:8px; border:1px solid #e3e7ef; background:#fbfdff; font-size:13px; }
+    textarea[readonly] { background:#f6f8fc; color:#111; }
+    .small { font-size:12px; color:#666; margin-top:6px; }
   </style>
 </head>
 <body>
   <div class="card">
-    <h3>Multilogin Auto-Tagger</h3>
-    <button id="addTagBtn">➕ Get Tags</button>
-    <button id="infoBtn">👤 Get user info</button>
+    <h3>Multilogin Auto-Tagger — AI Summary</h3>
+
+    <div class="controls">
+      <button id="addTagBtn">➕ Get Tags</button>
+      <button id="summBtn">📝 Summarize</button>
+      <button id="infoBtn">👤 Get user info</button>
+    </div>
+
     <div id="status">Widget loaded ✅</div>
-    <pre id="log" style="display:none;"></pre>
+
+    <div class="summary-grid" aria-live="polite">
+      <div class="section">
+        <label for="issueSummary">Issue summary: what the issue is and how it can be reproduced</label>
+        <textarea id="issueSummary" readonly placeholder="Issue summary will appear here..."></textarea>
+      </div>
+
+      <div class="section">
+        <label for="actionsTaken">Actions taken: what agents have tried or advised in this ticket</label>
+        <textarea id="actionsTaken" readonly placeholder="Actions taken will appear here..."></textarea>
+      </div>
+
+      <div class="section">
+        <label for="threadLink">[Optional] Thread link if escalated</label>
+        <textarea id="threadLink" readonly placeholder="Thread link (if available)"></textarea>
+      </div>
+
+      <div class="section">
+        <label for="nextActions">[Optional] Next actions: what needs to be done further</label>
+        <textarea id="nextActions" readonly placeholder="Next actions will appear here..."></textarea>
+      </div>
+    </div>
+
+    <div class="small">Note: нода summary вызывается на сервере, он сам вытянет историю и вернёт заполненные поля.</div>
+    <pre id="log" style="display:none; margin-top:12px; background:#f0f3f9; padding:10px; border-radius:8px;"></pre>
   </div>
 
   <script>
     (async () => {
-      let widget;
       const statusEl = document.getElementById('status');
       const logEl = document.getElementById('log');
       const btnAdd = document.getElementById('addTagBtn');
+      const btnSumm = document.getElementById('summBtn');
       const btnInfo = document.getElementById('infoBtn');
+
+      const issueEl = document.getElementById('issueSummary');
+      const actionsEl = document.getElementById('actionsTaken');
+      const threadEl = document.getElementById('threadLink');
+      const nextEl = document.getElementById('nextActions');
 
       function setStatus(text, cls="") {
         statusEl.className = cls;
         statusEl.textContent = text;
       }
-      function log(data) {
+      function showLog(v) {
         logEl.style.display = 'block';
-        logEl.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+        logEl.textContent = typeof v === 'string' ? v : JSON.stringify(v, null, 2);
       }
 
+      // init widget
+      let widget;
       try {
         widget = await LiveChat.createDetailsWidget();
         setStatus("SDK initialized ✓", "ok");
-      } catch {
+      } catch (err) {
         setStatus("❌ SDK init failed", "err");
+        console.error(err);
         return;
       }
 
-      // === Add AutoTaggingTest (с profile) ===
+      // helper: build compact profile (we won't send full raw profile)
+      function compactProfile(profile) {
+        return {
+          id: profile?.id,
+          name: profile?.name,
+          email: profile?.email,
+          geolocation: profile?.geolocation,
+          customVariables: profile?.customVariables,
+          preChatSurvey: profile?.chat?.preChatSurvey
+        };
+      }
+
+      // existing Get Tags action (unchanged)
       btnAdd.addEventListener("click", async () => {
         try {
-          setStatus("Sending request…");
+          setStatus("Sending tag request…");
           const profile = await widget.getCustomerProfile();
           const chatId = profile?.chat?.chat_id;
           const threadId = profile?.chat?.id;
-
           if (!chatId || !threadId) {
-            setStatus("❌ No chatId/threadId", "err");
-            return;
+            setStatus("❌ No chatId/threadId", "err"); return;
           }
-
           const resp = await fetch("https://npm.mlx.yt/webhook/livechat/add-tags", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -68,27 +121,72 @@
               chat_id: chatId,
               thread_id: threadId,
               tag: "AutoTaggingTest",
-              profile // <== тут уходит всё
+              profile: compactProfile(profile)
             })
           });
-
           setStatus(resp.ok ? "✅ Tag + profile sent" : "❌ Error " + resp.status, resp.ok ? "ok" : "err");
+          if (!resp.ok) showLog(await resp.text());
         } catch (e) {
-          setStatus("❌ Request failed", "err");
-          console.error(e);
+          setStatus("❌ Request failed", "err"); console.error(e); showLog(e?.message || String(e));
         }
       });
 
-      // === Get user info (для отладки) ===
+      // Summarize — отправляем webhook, сервер делает get_chat -> GPT -> возвращает summary
+      btnSumm.addEventListener("click", async () => {
+        try {
+          setStatus("Preparing summary request…");
+          const profile = await widget.getCustomerProfile();
+          const chatId = profile?.chat?.chat_id;
+          const threadId = profile?.chat?.id;
+          if (!chatId || !threadId) { setStatus("❌ No chatId/threadId", "err"); return; }
+
+          setStatus("Sending summary request…");
+
+          // Для безопасности — мы можем передать secret в заголовке. Подставьте ваш секрет в n8n.
+          const resp = await fetch("https://npm.mlx.yt/webhook/livechat/summary", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Webhook-Secret": "replace-with-your-secret" // обязательно заменить на реальный секрет
+            },
+            body: JSON.stringify({
+              chat_id: chatId,
+              thread_id: threadId,
+              profile: compactProfile(profile) // полезная контекстная инфа
+            })
+          });
+
+          if (!resp.ok) {
+            const text = await resp.text();
+            setStatus("❌ Summary request failed: " + resp.status, "err");
+            showLog(text);
+            return;
+          }
+
+          const data = await resp.json();
+          // ожидаем формат { issue_summary, actions_taken, thread_link, next_actions }
+          issueEl.value = data.issue_summary || data.issueSummary || "";
+          actionsEl.value = data.actions_taken || data.actionsTaken || "";
+          threadEl.value = data.thread_link || data.threadLink || "";
+          nextEl.value = data.next_actions || data.nextActions || "";
+
+          setStatus("✅ Summary loaded", "ok");
+          showLog(data);
+        } catch (e) {
+          setStatus("❌ Summary failed", "err"); console.error(e); showLog(e?.message || String(e));
+        }
+      });
+
+      // Get user info for debug
       btnInfo.addEventListener("click", async () => {
         try {
           setStatus("Fetching user info…");
           const profile = await widget.getCustomerProfile();
           setStatus("✅ User info loaded", "ok");
-          log(profile);
+          showLog(profile);
         } catch (e) {
           setStatus("❌ Failed to get user info", "err");
-          log(e?.message || String(e));
+          showLog(e?.message || String(e));
         }
       });
     })();
