@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8"/>
+  <meta charset="utf-8" />
   <title>Multilogin Auto-Tagger / Summary</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <script src="https://unpkg.com/@livechat/agent-app-sdk@1.6.3/dist/agentapp.umd.min.js"></script>
   <style>
     body { font-family: system-ui, Arial, sans-serif; margin: 0; background: #f6f7fb; }
@@ -19,6 +19,7 @@
     textarea { width:100%; min-height:84px; resize:vertical; padding:10px; border-radius:8px; border:1px solid #e3e7ef; background:#fbfdff; font-size:13px; }
     textarea[readonly] { background:#f6f8fc; color:#111; }
     .small { font-size:12px; color:#666; margin-top:6px; }
+    pre { background:#f0f3f9; padding:10px; border-radius:8px; overflow:auto; margin-top:12px; display:none; }
   </style>
 </head>
 <body>
@@ -55,8 +56,9 @@
       </div>
     </div>
 
-    <div class="small">Note: нода summary вызывается на сервере, он сам вытянет историю и вернёт заполненные поля.</div>
-    <pre id="log" style="display:none; margin-top:12px; background:#f0f3f9; padding:10px; border-radius:8px;"></pre>
+    <div class="small">Note: нода summary вызывается на сервере, он сам вытянет историю по chat_id, сформирует summary и вернёт заполненные поля.</div>
+
+    <pre id="log"></pre>
   </div>
 
   <script>
@@ -72,6 +74,11 @@
       const threadEl = document.getElementById('threadLink');
       const nextEl = document.getElementById('nextActions');
 
+      const SUMMARY_WEBHOOK = "https://npm.mlx.yt/webhook/livechat/summary";
+      const TAGS_WEBHOOK = "https://npm.mlx.yt/webhook/livechat/add-tags";
+      // Замените на реальный секрет, и пропишите такой же в n8n для проверки запроса
+      const WEBHOOK_SECRET = "replace-with-real-secret";
+
       function setStatus(text, cls="") {
         statusEl.className = cls;
         statusEl.textContent = text;
@@ -80,19 +87,6 @@
         logEl.style.display = 'block';
         logEl.textContent = typeof v === 'string' ? v : JSON.stringify(v, null, 2);
       }
-
-      // init widget
-      let widget;
-      try {
-        widget = await LiveChat.createDetailsWidget();
-        setStatus("SDK initialized ✓", "ok");
-      } catch (err) {
-        setStatus("❌ SDK init failed", "err");
-        console.error(err);
-        return;
-      }
-
-      // helper: build compact profile (we won't send full raw profile)
       function compactProfile(profile) {
         return {
           id: profile?.id,
@@ -104,56 +98,88 @@
         };
       }
 
-      // existing Get Tags action (unchanged)
+      // Detect browser timezone once
+      const browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+
+      // Init LiveChat widget
+      let widget;
+      try {
+        widget = await LiveChat.createDetailsWidget();
+        setStatus("SDK initialized ✓", "ok");
+      } catch (err) {
+        setStatus("❌ SDK init failed", "err");
+        console.error(err);
+        return;
+      }
+
+      // Get Tags (пример, минимальный профиль)
       btnAdd.addEventListener("click", async () => {
         try {
           setStatus("Sending tag request…");
           const profile = await widget.getCustomerProfile();
-          const chatId = profile?.chat?.chat_id;
-          const threadId = profile?.chat?.id;
+          const chatId = profile?.chat?.chat_id || profile?.chat?.chatId || profile?.chat?.id || profile?.chat_id;
+          const threadId = profile?.chat?.id || profile?.chat?.thread_id || profile?.chat?.threadId;
+
           if (!chatId || !threadId) {
-            setStatus("❌ No chatId/threadId", "err"); return;
+            setStatus("❌ No chatId/threadId", "err");
+            return;
           }
-          const resp = await fetch("https://npm.mlx.yt/webhook/livechat/add-tags", {
+
+          const body = {
+            chat_id: chatId,
+            thread_id: threadId,
+            tag: "AutoTaggingTest",
+            profile: compactProfile(profile),
+            client_time_zone: browserTimeZone
+          };
+
+          const resp = await fetch(TAGS_WEBHOOK, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: chatId,
-              thread_id: threadId,
-              tag: "AutoTaggingTest",
-              profile: compactProfile(profile)
-            })
+            headers: {
+              "Content-Type": "application/json",
+              "X-Webhook-Secret": WEBHOOK_SECRET
+            },
+            body: JSON.stringify(body)
           });
+
           setStatus(resp.ok ? "✅ Tag + profile sent" : "❌ Error " + resp.status, resp.ok ? "ok" : "err");
           if (!resp.ok) showLog(await resp.text());
         } catch (e) {
-          setStatus("❌ Request failed", "err"); console.error(e); showLog(e?.message || String(e));
+          setStatus("❌ Request failed", "err");
+          console.error(e);
+          showLog(e?.message || String(e));
         }
       });
 
-      // Summarize — отправляем webhook, сервер делает get_chat -> GPT -> возвращает summary
+      // Summarize flow: отправляем webhook, сервер вытягивает историю и возвращает готовое summary
       btnSumm.addEventListener("click", async () => {
         try {
           setStatus("Preparing summary request…");
           const profile = await widget.getCustomerProfile();
-          const chatId = profile?.chat?.chat_id;
-          const threadId = profile?.chat?.id;
-          if (!chatId || !threadId) { setStatus("❌ No chatId/threadId", "err"); return; }
+          const chatId = profile?.chat?.chat_id || profile?.chat?.chatId || profile?.chat?.id || profile?.chat_id;
+          const threadId = profile?.chat?.id || profile?.chat?.thread_id || profile?.chat?.threadId;
+
+          if (!chatId || !threadId) {
+            setStatus("❌ No chatId/threadId", "err");
+            return;
+          }
 
           setStatus("Sending summary request…");
 
-          // Для безопасности — мы можем передать secret в заголовке. Подставьте ваш секрет в n8n.
-          const resp = await fetch("https://npm.mlx.yt/webhook/livechat/summary", {
+          const body = {
+            chat_id: chatId,
+            thread_id: threadId,
+            profile: compactProfile(profile),
+            client_time_zone: browserTimeZone
+          };
+
+          const resp = await fetch(SUMMARY_WEBHOOK, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "X-Webhook-Secret": "replace-with-your-secret" // обязательно заменить на реальный секрет
+              "X-Webhook-Secret": WEBHOOK_SECRET
             },
-            body: JSON.stringify({
-              chat_id: chatId,
-              thread_id: threadId,
-              profile: compactProfile(profile) // полезная контекстная инфа
-            })
+            body: JSON.stringify(body)
           });
 
           if (!resp.ok) {
@@ -164,20 +190,22 @@
           }
 
           const data = await resp.json();
-          // ожидаем формат { issue_summary, actions_taken, thread_link, next_actions }
-          issueEl.value = data.issue_summary || data.issueSummary || "";
-          actionsEl.value = data.actions_taken || data.actionsTaken || "";
-          threadEl.value = data.thread_link || data.threadLink || "";
-          nextEl.value = data.next_actions || data.nextActions || "";
+          // Поддерживаем несколько вариантов ключей
+          issueEl.value = data.issue_summary || data.issueSummary || data.issue || "";
+          actionsEl.value = data.actions_taken || data.actionsTaken || data.actions || "";
+          threadEl.value = data.thread_link || data.threadLink || data.thread || "";
+          nextEl.value = data.next_actions || data.nextActions || data.next || "";
 
           setStatus("✅ Summary loaded", "ok");
           showLog(data);
         } catch (e) {
-          setStatus("❌ Summary failed", "err"); console.error(e); showLog(e?.message || String(e));
+          setStatus("❌ Summary failed", "err");
+          console.error(e);
+          showLog(e?.message || String(e));
         }
       });
 
-      // Get user info for debug
+      // Debug: show profile returned by SDK
       btnInfo.addEventListener("click", async () => {
         try {
           setStatus("Fetching user info…");
