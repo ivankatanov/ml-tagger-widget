@@ -58,9 +58,9 @@
       background: #e4e6ea;
     }
     .copy-btn.copied {
-      background: #d3edcd;
-      color: #42b883;
-      border-color: #42b883;
+      background: #f0f0f0;
+      color: #666;
+      border-color: #ccc;
     }
     textarea { 
       width: 100%; 
@@ -87,25 +87,44 @@
     }
 
     
-    /* Spinner styles */
+    /* Loading overlay styles */
+    #loadingIndicator {
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid #e1e5e9;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+      backdrop-filter: blur(2px);
+    }
+    
     .spinner {
       display: inline-block;
-      width: 14px;
-      height: 14px;
-      border: 2px solid #ccd0d5;
+      width: 20px;
+      height: 20px;
+      border: 3px solid #f3f4f6;
       border-radius: 50%;
       border-top-color: #1877f2;
-      animation: spin 1s linear infinite;
-      margin-right: 6px;
+      animation: spin 0.8s ease-in-out infinite;
+      margin-bottom: 8px;
     }
     
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
     
+    .loading-text {
+      color: #1877f2;
+      font-weight: 500;
+      font-size: 14px;
+      margin: 0;
+    }
+    
     .loading {
        pointer-events: none;
-       opacity: 0.6;
+       opacity: 0.7;
+       transform: scale(0.98);
+       transition: all 0.2s ease;
      }
      
      /* Menu styles */
@@ -218,24 +237,23 @@
     <div class="controls">
       <button id="summBtn">📝 Summarize</button>
       <button id="addTagBtn">🏷️ Get Tags</button>
-      <button id="infoBtn">👤 Get Info</button>
     </div>
 
     <div class="language-selector">
-      <span>Summary language: <span id="currentLanguageName">English</span></span>
+      <label for="languageSelect">Summary language:</label>
       <select id="languageSelect">
-        <option value="en">🇺🇸</option>
-        <option value="ru">🇷🇺</option>
-        <option value="pt">🇵🇹</option>
-        <option value="zh">🇨🇳</option>
-        <option value="vi">🇻🇳</option>
+        <option value="en">English</option>
+        <option value="ru">Русский</option>
+        <option value="pt">Português</option>
+        <option value="zh">中文</option>
+        <option value="vi">Tiếng Việt</option>
       </select>
     </div>
 
     <div id="status">Widget loaded ✅</div>
-    <div id="loadingIndicator" style="display:none; text-align:center; margin:12px 0; color:#667eea; font-weight:600;">
+    <div id="loadingIndicator" style="display:none; margin:16px 0;">
       <div class="spinner"></div>
-      Loading...
+      <p class="loading-text">Processing your request...</p>
     </div>
 
     <div class="summary-grid" aria-live="polite">
@@ -267,37 +285,18 @@
       const loadingEl = document.getElementById('loadingIndicator');
       const btnAdd = document.getElementById('addTagBtn');
       const btnSumm = document.getElementById('summBtn');
-      const btnInfo = document.getElementById('infoBtn');
 
       const issueEl = document.getElementById('issueSummary');
       const actionsEl = document.getElementById('actionsTaken');
       const languageSelect = document.getElementById('languageSelect');
-      const currentLanguageName = document.getElementById('currentLanguageName');
-      
-      // Language names mapping
-      const languageNames = {
-        'en': 'English',
-        'ru': 'Русский',
-        'pt': 'Português',
-        'zh': '中文',
-        'vi': 'Tiếng Việt'
-      };
-      
-      // Function to update language display
-      function updateLanguageDisplay(languageCode) {
-        currentLanguageName.textContent = languageNames[languageCode] || 'English';
-      }
       
       // Load saved language preference
-      const savedLanguage = localStorage.getItem('mlx-widget-language') || 'en';
+      const savedLanguage = localStorage.getItem('summaryLanguage') || 'en';
       languageSelect.value = savedLanguage;
-      updateLanguageDisplay(savedLanguage);
       
       // Save language preference when changed
       languageSelect.addEventListener('change', function() {
-        localStorage.setItem('mlx-widget-language', this.value);
-        updateLanguageDisplay(this.value);
-        setStatus(`✅ Language changed to ${languageNames[this.value]}`, 'ok');
+        localStorage.setItem('summaryLanguage', this.value);
       });
 
       const SUMMARY_WEBHOOK = "https://npm.mlx.yt/webhook/livechat/summary";
@@ -312,11 +311,11 @@
 
       function showLoading() {
         loadingEl.style.display = 'block';
-        [btnAdd, btnSumm, btnInfo].forEach(btn => btn.classList.add('loading'));
+        [btnAdd, btnSumm].forEach(btn => btn.classList.add('loading'));
       }
       function hideLoading() {
         loadingEl.style.display = 'none';
-        [btnAdd, btnSumm, btnInfo].forEach(btn => btn.classList.remove('loading'));
+        [btnAdd, btnSumm].forEach(btn => btn.classList.remove('loading'));
       }
       
       // Copy to clipboard function
@@ -522,19 +521,7 @@
         }
       });
 
-      // Debug: show profile returned by SDK
-      btnInfo.addEventListener("click", async () => {
-        try {
-          showLoading();
-          setStatus("Fetching user info…");
-          const profile = await widget.getCustomerProfile();
-          setStatus("✅ User info loaded", "ok");
-        } catch (e) {
-          setStatus("❌ Failed to get user info", "err");
-        } finally {
-          hideLoading();
-        }
-      });
+
     })();
   </script>
 </body>
