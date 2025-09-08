@@ -309,13 +309,31 @@
         statusEl.textContent = text;
       }
 
-      function showLoading() {
-        loadingEl.style.display = 'block';
+      let loadingInterval;
+      
+      function showLoading(message = "Processing") {
+        // Hide the big loading indicator
+        loadingEl.style.display = 'none';
         [btnAdd, btnSumm].forEach(btn => btn.classList.add('loading'));
+        
+        // Start animated dots in status
+        let dotCount = 0;
+        loadingInterval = setInterval(() => {
+          dotCount = (dotCount % 3) + 1;
+          const dots = '.'.repeat(dotCount);
+          setStatus(`⏳ ${message}${dots}`);
+        }, 500);
       }
+      
       function hideLoading() {
         loadingEl.style.display = 'none';
         [btnAdd, btnSumm].forEach(btn => btn.classList.remove('loading'));
+        
+        // Stop animated dots
+        if (loadingInterval) {
+          clearInterval(loadingInterval);
+          loadingInterval = null;
+        }
       }
       
       // Copy to clipboard function
@@ -431,14 +449,14 @@
       // Get Tags (пример, минимальный профиль)
       btnAdd.addEventListener("click", async () => {
         try {
-          showLoading();
-          setStatus("Sending tag request…");
+          showLoading("Sending tag request");
           const profile = await widget.getCustomerProfile();
           const chatId = profile?.chat?.chat_id || profile?.chat?.chatId || profile?.chat?.id || profile?.chat_id;
           const threadId = profile?.chat?.id || profile?.chat?.thread_id || profile?.chat?.threadId;
 
           if (!chatId || !threadId) {
             setStatus("❌ No chatId/threadId", "err");
+            hideLoading();
             return;
           }
 
@@ -471,18 +489,27 @@
       // Summarize flow: отправляем webhook, сервер вытягивает историю и возвращает готовое summary
       btnSumm.addEventListener("click", async () => {
         try {
-          showLoading();
-          setStatus("Preparing summary request…");
+          showLoading("Preparing summary request");
           const profile = await widget.getCustomerProfile();
           const chatId = profile?.chat?.chat_id || profile?.chat?.chatId || profile?.chat?.id || profile?.chat_id;
           const threadId = profile?.chat?.id || profile?.chat?.thread_id || profile?.chat?.threadId;
 
           if (!chatId || !threadId) {
             setStatus("❌ No chatId/threadId", "err");
+            hideLoading();
             return;
           }
 
-          setStatus("Sending summary request…");
+          // Update loading message
+          if (loadingInterval) {
+            clearInterval(loadingInterval);
+            let dotCount = 0;
+            loadingInterval = setInterval(() => {
+              dotCount = (dotCount % 3) + 1;
+              const dots = '.'.repeat(dotCount);
+              setStatus(`⏳ Sending summary request${dots}`);
+            }, 500);
+          }
 
           // Map language codes to full English names
           const languageMap = {
