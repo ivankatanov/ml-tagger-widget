@@ -449,7 +449,7 @@
       // Get Tags (пример, минимальный профиль)
       btnAdd.addEventListener("click", async () => {
         try {
-          showLoading("Sending tag request");
+          showLoading("Updating tags ");
           const profile = await widget.getCustomerProfile();
           const chatId = profile?.chat?.chat_id || profile?.chat?.chatId || profile?.chat?.id || profile?.chat_id;
           const threadId = profile?.chat?.id || profile?.chat?.thread_id || profile?.chat?.threadId;
@@ -477,7 +477,7 @@
             body: JSON.stringify(body)
           });
 
-          setStatus(resp.ok ? "✅ Tag + profile sent" : "❌ Error " + resp.status, resp.ok ? "ok" : "err");
+          setStatus(resp.ok ? "✅ Tags updated" : "❌ Error " + resp.status, resp.ok ? "ok" : "err");
         } catch (e) {
           setStatus("❌ Request failed", "err");
           console.error(e);
@@ -507,7 +507,7 @@
             loadingInterval = setInterval(() => {
               dotCount = (dotCount % 3) + 1;
               const dots = '.'.repeat(dotCount);
-              setStatus(`⏳ Sending summary request${dots}`);
+              setStatus(`⏳ Updating summary ${dots}`);
             }, 500);
           }
 
