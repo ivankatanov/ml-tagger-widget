@@ -237,6 +237,7 @@
     <div class="controls">
       <button id="summBtn">📝 Summarize</button>
       <button id="addTagBtn">🏷️ Get Tags</button>
+      <button id="getTelegramBtn">📱 Get Telegram</button>
     </div>
 
     <div class="language-selector">
@@ -272,6 +273,14 @@
         </div>
         <textarea id="actionsTaken" readonly placeholder="Actions taken will appear here..."></textarea>
       </div>
+
+      <div class="section">
+        <div class="field-header">
+          <label for="telegramInfo">Telegram</label>
+          <button class="copy-btn" onclick="copyToClipboard('telegramInfo', this)" title="Copy">📋</button>
+        </div>
+        <textarea id="telegramInfo" readonly placeholder="Telegram information will appear here..."></textarea>
+      </div>
     </div>
 
     
@@ -285,9 +294,11 @@
       const loadingEl = document.getElementById('loadingIndicator');
       const btnAdd = document.getElementById('addTagBtn');
       const btnSumm = document.getElementById('summBtn');
+      const btnTelegram = document.getElementById('getTelegramBtn');
 
       const issueEl = document.getElementById('issueSummary');
       const actionsEl = document.getElementById('actionsTaken');
+      const telegramEl = document.getElementById('telegramInfo');
       const languageSelect = document.getElementById('languageSelect');
       
       // Load saved language preference
@@ -301,6 +312,7 @@
 
       const SUMMARY_WEBHOOK = "https://npm.mlx.yt/webhook/livechat/summary";
       const TAGS_WEBHOOK = "https://npm.mlx.yt/webhook/livechat/add-tags";
+      const TELEGRAM_WEBHOOK = "https://npm.mlx.yt/webhook/livechat/get-telegram";
       // Замените на реальный секрет, и пропишите такой же в n8n для проверки запроса
       const WEBHOOK_SECRET = "replace-with-real-secret";
 
@@ -314,7 +326,7 @@
       function showLoading(message = "Processing") {
         // Hide the big loading indicator
         loadingEl.style.display = 'none';
-        [btnAdd, btnSumm].forEach(btn => btn.classList.add('loading'));
+        [btnAdd, btnSumm, btnTelegram].forEach(btn => btn.classList.add('loading'));
         
         // Start animated dots in status
         let dotCount = 0;
@@ -327,7 +339,7 @@
       
       function hideLoading() {
         loadingEl.style.display = 'none';
-        [btnAdd, btnSumm].forEach(btn => btn.classList.remove('loading'));
+        [btnAdd, btnSumm, btnTelegram].forEach(btn => btn.classList.remove('loading'));
         
         // Stop animated dots
         if (loadingInterval) {
@@ -391,6 +403,7 @@
          if (confirm('Are you sure you want to delete the current summary?')) {
            issueEl.value = '';
            actionsEl.value = '';
+           telegramEl.value = '';
            setStatus('✅ Summary cleared', 'ok');
          }
        };
@@ -399,8 +412,9 @@
          document.getElementById('dropdownMenu').classList.remove('show');
          const issueText = issueEl.value.trim();
          const actionsText = actionsEl.value.trim();
+         const telegramText = telegramEl.value.trim();
          
-         if (!issueText && !actionsText) {
+         if (!issueText && !actionsText && !telegramText) {
            setStatus('❌ No content to copy', 'error');
            return;
          }
@@ -412,6 +426,10 @@
          if (actionsText) {
            if (combinedText) combinedText += '\n\n';
            combinedText += 'Actions Taken:\n' + actionsText;
+         }
+         if (telegramText) {
+           if (combinedText) combinedText += '\n\n';
+           combinedText += 'Telegram:\n' + telegramText;
          }
          
          navigator.clipboard.writeText(combinedText).then(() => {
@@ -551,6 +569,63 @@
           setStatus("✅ Summary loaded", "ok");
         } catch (e) {
           setStatus("❌ Summary failed", "err");
+          console.error(e);
+        } finally {
+          hideLoading();
+        }
+      });
+
+      // Get Telegram flow: отправляем webhook для получения Telegram пользователя из PipeDrive
+      btnTelegram.addEventListener("click", async () => {
+        try {
+          showLoading("Getting Telegram info");
+          const profile = await widget.getCustomerProfile();
+          const chatId = profile?.chat?.chat_id || profile?.chat?.chatId || profile?.chat?.id || profile?.chat_id;
+          const threadId = profile?.chat?.id || profile?.chat?.thread_id || profile?.chat?.threadId;
+          const customerEmail = profile?.email;
+
+          if (!chatId || !threadId) {
+            setStatus("❌ No chatId/threadId", "err");
+            hideLoading();
+            return;
+          }
+
+          if (!customerEmail) {
+            setStatus("❌ No customer email found", "err");
+            hideLoading();
+            return;
+          }
+
+          const body = {
+            chat_id: chatId,
+            thread_id: threadId,
+            customer_email: customerEmail,
+            profile: compactProfile(profile),
+            client_time_zone: browserTimeZone
+          };
+
+          const resp = await fetch(TELEGRAM_WEBHOOK, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Webhook-Secret": WEBHOOK_SECRET
+            },
+            body: JSON.stringify(body)
+          });
+
+          if (!resp.ok) {
+            const text = await resp.text();
+            setStatus("❌ Telegram request failed: " + resp.status, "err");
+            return;
+          }
+
+          const data = await resp.json();
+          // Отображаем полученную информацию о Telegram
+          telegramEl.value = data.telegram || data.telegram_username || data.telegram_id || "Telegram not found";
+
+          setStatus("✅ Telegram info loaded", "ok");
+        } catch (e) {
+          setStatus("❌ Telegram request failed", "err");
           console.error(e);
         } finally {
           hideLoading();
