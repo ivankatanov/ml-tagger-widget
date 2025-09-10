@@ -679,7 +679,7 @@
 
           const data = await resp.json();
           // Отображаем полученную информацию о Telegram
-          const telegramInfo = data.telegram || data.telegram_username || data.telegram_id || "Telegram not found";
+          const telegramInfo = data.telegram || data.telegram_username || data.telegram_id || "Telegram not found in Pipedrive";
           telegramResult.textContent = telegramInfo;
 
           setStatus("✅ Telegram info loaded", "ok");
