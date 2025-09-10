@@ -218,6 +218,44 @@
        border-color: #1877f2;
        box-shadow: 0 0 0 2px rgba(24, 119, 242, 0.2);
      }
+     
+     /* Telegram section styles */
+     .telegram-section {
+       margin-top: 24px;
+       padding-top: 20px;
+       border-top: 1px solid #e1e5e9;
+     }
+     
+     .telegram-controls {
+       display: flex;
+       align-items: center;
+       gap: 12px;
+     }
+     
+     .telegram-result {
+       flex: 1;
+       padding: 8px 12px;
+       background: #f5f6f7;
+       border: 1px solid #ccd0d5;
+       border-radius: 6px;
+       font-size: 14px;
+       color: #1c1e21;
+       cursor: pointer;
+       transition: background-color 0.2s ease;
+       min-height: 20px;
+       display: flex;
+       align-items: center;
+     }
+     
+     .telegram-result:hover {
+       background: #e4e6ea;
+     }
+     
+     .telegram-result.copied {
+       background: #e8f5e8;
+       border-color: #42b883;
+       color: #42b883;
+     }
   </style>
 </head>
 <body>
@@ -237,7 +275,6 @@
     <div class="controls">
       <button id="summBtn">📝 Summarize</button>
       <button id="addTagBtn">🏷️ Get Tags</button>
-      <button id="getTelegramBtn">📱 Get Telegram</button>
     </div>
 
     <div class="language-selector">
@@ -274,17 +311,17 @@
         <textarea id="actionsTaken" readonly placeholder="Actions taken will appear here..."></textarea>
       </div>
 
-      <div class="section">
-        <div class="field-header">
-          <label for="telegramInfo">Telegram</label>
-          <button class="copy-btn" onclick="copyToClipboard('telegramInfo', this)" title="Copy">📋</button>
-        </div>
-        <textarea id="telegramInfo" readonly placeholder="Telegram information will appear here..."></textarea>
-      </div>
     </div>
 
-    
-
+    <!-- Telegram section -->
+    <div class="telegram-section">
+      <div class="telegram-controls">
+        <button id="getTelegramBtn">📱 Get Telegram</button>
+        <div class="telegram-result" onclick="copyTelegramResult()" title="Click to copy">
+          <span id="telegramResult">Click "Get Telegram" to fetch info</span>
+        </div>
+      </div>
+    </div>
 
   </div>
 
@@ -298,7 +335,7 @@
 
       const issueEl = document.getElementById('issueSummary');
       const actionsEl = document.getElementById('actionsTaken');
-      const telegramEl = document.getElementById('telegramInfo');
+      const telegramResult = document.getElementById('telegramResult');
       const languageSelect = document.getElementById('languageSelect');
       
       // Load saved language preference
@@ -403,7 +440,6 @@
          if (confirm('Are you sure you want to delete the current summary?')) {
            issueEl.value = '';
            actionsEl.value = '';
-           telegramEl.value = '';
            setStatus('✅ Summary cleared', 'ok');
          }
        };
@@ -412,9 +448,8 @@
          document.getElementById('dropdownMenu').classList.remove('show');
          const issueText = issueEl.value.trim();
          const actionsText = actionsEl.value.trim();
-         const telegramText = telegramEl.value.trim();
          
-         if (!issueText && !actionsText && !telegramText) {
+         if (!issueText && !actionsText) {
            setStatus('❌ No content to copy', 'error');
            return;
          }
@@ -427,16 +462,39 @@
            if (combinedText) combinedText += '\n\n';
            combinedText += 'Actions Taken:\n' + actionsText;
          }
-         if (telegramText) {
-           if (combinedText) combinedText += '\n\n';
-           combinedText += 'Telegram:\n' + telegramText;
-         }
          
          navigator.clipboard.writeText(combinedText).then(() => {
            setStatus('✅ All content copied to clipboard', 'ok');
          }).catch(() => {
            setStatus('❌ Failed to copy content', 'error');
          });
+       };
+       
+       // Copy telegram result function
+       window.copyTelegramResult = async function() {
+         const text = telegramResult.textContent.trim();
+         
+         if (!text || text === "Click \"Get Telegram\" to fetch info") {
+           setStatus('❌ No Telegram info to copy', 'err');
+           return;
+         }
+         
+         try {
+           await navigator.clipboard.writeText(text);
+           
+           // Visual feedback
+           const originalBg = telegramResult.parentElement.style.background;
+           telegramResult.parentElement.classList.add('copied');
+           
+           setTimeout(() => {
+             telegramResult.parentElement.classList.remove('copied');
+           }, 2000);
+           
+           setStatus('✅ Telegram copied to clipboard', 'ok');
+         } catch (err) {
+           console.error('Failed to copy: ', err);
+           setStatus('❌ Failed to copy Telegram', 'err');
+         }
        };
        
        function compactProfile(profile) {
@@ -621,7 +679,8 @@
 
           const data = await resp.json();
           // Отображаем полученную информацию о Telegram
-          telegramEl.value = data.telegram || data.telegram_username || data.telegram_id || "Telegram not found";
+          const telegramInfo = data.telegram || data.telegram_username || data.telegram_id || "Telegram not found";
+          telegramResult.textContent = telegramInfo;
 
           setStatus("✅ Telegram info loaded", "ok");
         } catch (e) {
