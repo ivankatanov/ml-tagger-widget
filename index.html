@@ -256,6 +256,17 @@
        border-color: #42b883;
        color: #42b883;
      }
+     
+     .telegram-result.inactive {
+       background: #f8f9fa;
+       color: #65676b;
+       cursor: not-allowed;
+       border-color: #dadde1;
+     }
+     
+     .telegram-result.inactive:hover {
+       background: #f8f9fa;
+     }
   </style>
 </head>
 <body>
@@ -317,7 +328,7 @@
     <div class="telegram-section">
       <div class="telegram-controls">
         <button id="getTelegramBtn">📱 Get Telegram</button>
-        <div class="telegram-result" onclick="copyTelegramResult()" title="Click to copy">
+        <div class="telegram-result inactive" onclick="copyTelegramResult()" title="Click to copy">
           <span id="telegramResult">Click "Get Telegram" to fetch info from Pipedrive</span>
         </div>
       </div>
@@ -472,9 +483,17 @@
        
        // Copy telegram result function
        window.copyTelegramResult = async function() {
+         const telegramResultElement = telegramResult.parentElement;
+         
+         // Проверяем, активно ли поле
+         if (telegramResultElement.classList.contains('inactive')) {
+           setStatus('❌ No Telegram info to copy', 'err');
+           return;
+         }
+         
          const text = telegramResult.textContent.trim();
          
-         if (!text || text === "Click \"Get Telegram\" to fetch info") {
+         if (!text || text === "Click \"Get Telegram\" to fetch info from Pipedrive" || text === "Telegram not found in Pipedrive") {
            setStatus('❌ No Telegram info to copy', 'err');
            return;
          }
@@ -682,7 +701,16 @@
           const telegramInfo = data.telegram || data.telegram_username || data.telegram_id || "Telegram not found in Pipedrive";
           telegramResult.textContent = telegramInfo;
 
-          setStatus("✅ Telegram info loaded", "ok");
+          const telegramResultElement = telegramResult.parentElement;
+          
+          // Проверяем, найден ли Telegram
+          if (telegramInfo === "Telegram not found in Pipedrive") {
+            telegramResultElement.classList.add('inactive');
+            setStatus("❌ Telegram info not found", "err");
+          } else {
+            telegramResultElement.classList.remove('inactive');
+            setStatus("✅ Telegram info loaded", "ok");
+          }
         } catch (e) {
           setStatus("❌ Telegram request failed", "err");
           console.error(e);
