@@ -329,8 +329,11 @@
       <div class="telegram-controls">
         <button id="getTelegramBtn">📱 Get Telegram</button>
         <div class="telegram-result inactive" onclick="copyTelegramResult()" title="Click to copy">
-          <span id="telegramResult">Click "Get Telegram" to fetch info from Pipedrive</span>
+          <span id="telegramResult">Auto-fetch enabled - Telegram will load automatically</span>
         </div>
+      </div>
+      <div class="small" style="margin-top: 8px; color: #65676b;">
+        💡 Telegram info is now fetched automatically when opening a chat. Manual button available as backup.
       </div>
     </div>
 
@@ -530,11 +533,99 @@
       // Detect browser timezone once
       const browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || null;
 
+      // Функция для сброса саммари при переключении диалога
+      function clearSummary() {
+        const issueSummary = document.getElementById('issueSummary');
+        const actionsTaken = document.getElementById('actionsTaken');
+        
+        if (issueSummary) {
+          issueSummary.value = '';
+          issueSummary.placeholder = 'Issue summary will appear here...';
+        }
+        
+        if (actionsTaken) {
+          actionsTaken.value = '';
+          actionsTaken.placeholder = 'Actions taken will appear here...';
+        }
+        
+        // Сбрасываем статус на начальный
+        setStatus('Ready', 'ok');
+        
+        console.log('Summary cleared for new dialog');
+      }
+
+      // Функция для автоматического получения Telegram
+      async function autoGetTelegram(profile) {
+        const chatId = profile?.chat?.chat_id || profile?.chat?.chatId || profile?.chat?.id || profile?.chat_id;
+        const threadId = profile?.chat?.id || profile?.chat?.thread_id || profile?.chat?.threadId;
+        const customerEmail = profile?.email;
+
+        if (!chatId || !threadId || !customerEmail) {
+          console.log('Missing required data for auto Telegram fetch:', { chatId, threadId, customerEmail });
+          return;
+        }
+
+        const body = {
+          chat_id: chatId,
+          thread_id: threadId,
+          customer_email: customerEmail,
+          profile: compactProfile(profile),
+          client_time_zone: browserTimeZone
+        };
+
+        try {
+          const resp = await fetch(TELEGRAM_WEBHOOK, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Webhook-Secret": WEBHOOK_SECRET
+            },
+            body: JSON.stringify(body)
+          });
+
+          if (resp.ok) {
+            const data = await resp.json();
+            const telegramInfo = data.telegram || data.telegram_username || data.telegram_id || "Telegram not found in Pipedrive";
+            
+            // Обновляем UI только если найден Telegram
+            if (telegramInfo !== "Telegram not found in Pipedrive") {
+              telegramResult.textContent = telegramInfo;
+              const telegramResultElement = telegramResult.parentElement;
+              telegramResultElement.classList.remove('inactive');
+              console.log('Auto-fetched Telegram:', telegramInfo);
+            } else {
+              console.log('Telegram not found for customer:', customerEmail);
+            }
+          }
+        } catch (error) {
+          console.error('Auto Telegram fetch request failed:', error);
+        }
+      }
+
       // Init LiveChat widget
       let widget;
       try {
         widget = await LiveChat.createDetailsWidget();
         setStatus("Widget initialized ✓", "ok");
+        
+        // Автоматическое получение Telegram и сброс саммари при открытии диалога
+        widget.on('customer_profile', async (profile) => {
+          console.log('Customer profile event received:', profile);
+          
+          // Сбрасываем саммари при переключении диалога
+          clearSummary();
+          
+          // Проверяем, есть ли email у клиента
+          if (profile?.email) {
+            try {
+              await autoGetTelegram(profile);
+            } catch (error) {
+              console.error('Auto Telegram fetch failed:', error);
+              // Не показываем ошибку пользователю, чтобы не мешать работе
+            }
+          }
+        });
+        
       } catch (err) {
         setStatus("❌ Widget init failed", "err");
         console.error(err);
