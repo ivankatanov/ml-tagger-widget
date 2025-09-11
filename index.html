@@ -533,7 +533,7 @@
       // Detect browser timezone once
       const browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || null;
 
-      // Функция для сброса саммари при переключении диалога
+      // Функция для сброса саммари и Telegram при переключении диалога
       function clearSummary() {
         const issueSummary = document.getElementById('issueSummary');
         const actionsTaken = document.getElementById('actionsTaken');
@@ -548,10 +548,16 @@
           actionsTaken.placeholder = 'Actions taken will appear here...';
         }
         
+        // Сбрасываем поле Telegram
+        telegramResult.textContent = 'Auto-fetch enabled - Telegram will load automatically';
+        const telegramResultElement = telegramResult.parentElement;
+        telegramResultElement.classList.add('inactive');
+        telegramResultElement.classList.remove('copied');
+        
         // Сбрасываем статус на начальный
         setStatus('Ready', 'ok');
         
-        console.log('Summary cleared for new dialog');
+        console.log('Summary and Telegram cleared for new dialog');
       }
 
       // Функция для автоматического получения Telegram
@@ -587,18 +593,28 @@
             const data = await resp.json();
             const telegramInfo = data.telegram || data.telegram_username || data.telegram_id || "Telegram not found in Pipedrive";
             
-            // Обновляем UI только если найден Telegram
+            // Обновляем UI в любом случае
+            telegramResult.textContent = telegramInfo;
+            const telegramResultElement = telegramResult.parentElement;
+            telegramResultElement.classList.remove('inactive');
+            
             if (telegramInfo !== "Telegram not found in Pipedrive") {
-              telegramResult.textContent = telegramInfo;
-              const telegramResultElement = telegramResult.parentElement;
-              telegramResultElement.classList.remove('inactive');
               console.log('Auto-fetched Telegram:', telegramInfo);
             } else {
               console.log('Telegram not found for customer:', customerEmail);
             }
+          } else {
+            // Показываем ошибку в поле при неудачном запросе
+            telegramResult.textContent = 'Failed to fetch Telegram info';
+            const telegramResultElement = telegramResult.parentElement;
+            telegramResultElement.classList.remove('inactive');
           }
         } catch (error) {
           console.error('Auto Telegram fetch request failed:', error);
+          // Показываем ошибку в поле при исключении
+          telegramResult.textContent = 'Error fetching Telegram info';
+          const telegramResultElement = telegramResult.parentElement;
+          telegramResultElement.classList.remove('inactive');
         }
       }
 
@@ -783,6 +799,9 @@
 
           if (!resp.ok) {
             const text = await resp.text();
+            telegramResult.textContent = "Failed to fetch Telegram info";
+            const telegramResultElement = telegramResult.parentElement;
+            telegramResultElement.classList.remove('inactive');
             setStatus("❌ Telegram request failed: " + resp.status, "err");
             return;
           }
@@ -793,16 +812,18 @@
           telegramResult.textContent = telegramInfo;
 
           const telegramResultElement = telegramResult.parentElement;
+          telegramResultElement.classList.remove('inactive');
           
           // Проверяем, найден ли Telegram
           if (telegramInfo === "Telegram not found in Pipedrive") {
-            telegramResultElement.classList.add('inactive');
             setStatus("❌ Telegram info not found", "err");
           } else {
-            telegramResultElement.classList.remove('inactive');
             setStatus("✅ Telegram info loaded", "ok");
           }
         } catch (e) {
+          telegramResult.textContent = "Error fetching Telegram info";
+          const telegramResultElement = telegramResult.parentElement;
+          telegramResultElement.classList.remove('inactive');
           setStatus("❌ Telegram request failed", "err");
           console.error(e);
         } finally {
