@@ -595,7 +595,10 @@
             // Проверяем новую структуру ответа с user_found
             if (data.user_found === false) {
               console.log('User not found in PipeDrive for email:', customerEmail);
-              // Не показываем ошибку в UI при автоматическом запросе
+              // Показываем информационное уведомление в виджете
+              telegramResult.textContent = "User not found in PipeDrive";
+              const telegramResultElement = telegramResult.parentElement;
+              telegramResultElement.classList.remove('inactive');
             } else if (data.user_found === true) {
               const telegramInfo = data.tg_updated || data.telegram || "Telegram found";
               telegramResult.textContent = telegramInfo;
