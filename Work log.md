@@ -15,6 +15,8 @@
 1. Удалена надпись "Auto-fetch enabled - Telegram will load automatically" из поля Telegram
 2. Перемещена кнопка копирования под кнопку "Update TG Username"
 3. Обновлен текст подсказки для большей ясности
+4. Добавлен заголовок "Telegram Username" жирным шрифтом
+5. Изменена структура раздела Telegram для соответствия стилю других разделов
 
 #### Изменения в JavaScript
 1. Добавлена константа `UPDATE_TELEGRAM_WEBHOOK` со значением `"https://npm.mlx.yt/webhook/livechat/update-telegram"`

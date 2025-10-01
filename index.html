@@ -326,15 +326,20 @@
 
     <!-- Telegram section -->
     <div class="telegram-section">
-      <div class="telegram-controls">
-        <div class="telegram-result inactive" contenteditable="true" title="Edit Telegram username">
-          <span id="telegramResult"></span>
+      <div class="section">
+        <div class="field-header">
+          <label for="telegramResult"><strong>Telegram Username</strong></label>
+          <button class="copy-btn" onclick="copyTelegramResult()" title="Copy">📋</button>
         </div>
-        <button id="updateTelegramBtn">📝 Update TG Username</button>
-        <button class="copy-btn" onclick="copyTelegramResult()" title="Copy">📋</button>
-      </div>
-      <div class="small" style="margin-top: 8px; color: #65676b;">
-        💡 The Telegram username is fetched automatically when you open a chat. If you want to change the client's Telegram username in Pipedrive – enter the username and click the Update TG Username button.
+        <div class="telegram-controls">
+          <div class="telegram-result inactive" contenteditable="true" title="Edit Telegram username">
+            <span id="telegramResult"></span>
+          </div>
+          <button id="updateTelegramBtn">📝 Update TG Username</button>
+        </div>
+        <div class="small" style="margin-top: 8px; color: #65676b;">
+          💡 The Telegram username is fetched automatically when you open a chat. If you want to change the client's Telegram username in Pipedrive – enter the username and click the Update TG Username button.
+        </div>
       </div>
     </div>
 
