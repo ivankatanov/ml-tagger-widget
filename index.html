@@ -357,6 +357,48 @@
       const actionsEl = document.getElementById('actionsTaken');
       const telegramResult = document.getElementById('telegramResult');
       const languageSelect = document.getElementById('languageSelect');
+
+      const telegramField = (() => {
+        const container = telegramResult.parentElement;
+
+        function ensureStructure() {
+          if (!container.contains(telegramResult) || container.childNodes.length !== 1) {
+            container.replaceChildren(telegramResult);
+          }
+        }
+
+        function normalize(value) {
+          if (typeof value !== 'string') {
+            return '';
+          }
+          return value.replace(/\s+/g, ' ').trim();
+        }
+
+        function set(value, { active = true } = {}) {
+          ensureStructure();
+          const sanitized = normalize(value ?? '');
+          telegramResult.textContent = sanitized;
+          container.classList.remove('copied');
+          if (active) {
+            container.classList.remove('inactive');
+          } else {
+            container.classList.add('inactive');
+          }
+          return sanitized;
+        }
+
+        function get() {
+          ensureStructure();
+          const raw = container.textContent ?? '';
+          return set(raw, { active: true });
+        }
+
+        function clear({ keepActive = false } = {}) {
+          return set('', { active: keepActive });
+        }
+
+        return { container, set, get, clear, normalize };
+      })();
       
       // Load saved language preference
       const savedLanguage = localStorage.getItem('summaryLanguage') || 'en';
@@ -492,31 +534,30 @@
        };
        
        // Copy telegram result function
-       window.copyTelegramResult = async function() {
-         const telegramResultElement = telegramResult.parentElement;
-         
-         // Проверяем, активно ли поле
-         if (telegramResultElement.classList.contains('inactive')) {
-           setStatus('❌ No Telegram info to copy', 'err');
-           return;
-         }
-         
-         const text = telegramResult.textContent.trim();
-         
-         if (!text || text === "Click \"Get Telegram\" to fetch info from Pipedrive" || text === "Telegram not found in Pipedrive") {
-           setStatus('❌ No Telegram info to copy', 'err');
-           return;
-         }
+      window.copyTelegramResult = async function() {
+        const telegramResultElement = telegramField.container;
+
+        // Проверяем, активно ли поле
+        if (telegramResultElement.classList.contains('inactive')) {
+          setStatus('❌ No Telegram info to copy', 'err');
+          return;
+        }
+
+        const text = telegramField.get();
+
+        if (!text || text === "Click \"Get Telegram\" to fetch info from Pipedrive" || text === "Telegram not found in Pipedrive") {
+          setStatus('❌ No Telegram info to copy', 'err');
+          return;
+        }
          
          try {
            await navigator.clipboard.writeText(text);
            
            // Visual feedback
-           const originalBg = telegramResult.parentElement.style.background;
-           telegramResult.parentElement.classList.add('copied');
-           
+           telegramResultElement.classList.add('copied');
+
            setTimeout(() => {
-             telegramResult.parentElement.classList.remove('copied');
+             telegramResultElement.classList.remove('copied');
            }, 2000);
            
            setStatus('✅ Telegram copied to clipboard', 'ok');
@@ -530,11 +571,85 @@
         return {
           id: profile?.id,
           name: profile?.name,
-          email: profile?.email,
+          email: extractCustomerEmail(profile),
           geolocation: profile?.geolocation,
           customVariables: profile?.customVariables,
           preChatSurvey: profile?.chat?.preChatSurvey
         };
+      }
+
+      function isValidEmail(value) {
+        if (typeof value !== 'string') {
+          return false;
+        }
+        const trimmed = value.trim();
+        if (!trimmed) {
+          return false;
+        }
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+      }
+
+      function extractEmailFromPrechat(preChatSurvey) {
+        if (!Array.isArray(preChatSurvey)) {
+          return '';
+        }
+
+        for (const item of preChatSurvey) {
+          const answer = item?.answer;
+          if (isValidEmail(answer)) {
+            return answer.trim();
+          }
+        }
+
+        return '';
+      }
+
+      function findEmailInList(list) {
+        if (!Array.isArray(list)) {
+          return '';
+        }
+
+        for (const item of list) {
+          if (isValidEmail(item?.email)) {
+            return item.email.trim();
+          }
+        }
+
+        return '';
+      }
+
+      function extractCustomerEmail(profile) {
+        if (!profile || typeof profile !== 'object') {
+          return '';
+        }
+
+        const chatCustomersEmail = findEmailInList(profile?.chat?.customers);
+        const customersEmail = findEmailInList(profile?.customers);
+
+        const emailCandidates = [
+          profile.email,
+          profile?.customer?.email,
+          profile?.customer?.fields?.email,
+          profile?.customer?.attributes?.email,
+          profile?.fields?.email,
+          profile?.attributes?.email,
+          profile?.chat?.customer?.email,
+          profile?.chat?.customer?.fields?.email,
+          profile?.chat?.customer?.attributes?.email,
+          chatCustomersEmail,
+          customersEmail,
+          profile?.customVariables?.email,
+          extractEmailFromPrechat(profile?.chat?.preChatSurvey),
+          extractEmailFromPrechat(profile?.preChatSurvey)
+        ];
+
+        for (const candidate of emailCandidates) {
+          if (isValidEmail(candidate)) {
+            return candidate.trim();
+          }
+        }
+
+        return '';
       }
 
       // Detect browser timezone once
@@ -656,10 +771,7 @@
       }
 
       function updateTelegramResultField(username) {
-        const telegramResultElement = telegramResult.parentElement;
-        telegramResult.textContent = username || '';
-        telegramResultElement.classList.remove('inactive', 'copied');
-        return telegramResultElement;
+        return telegramField.set(username || '', { active: true });
       }
 
       function applyTelegramLookupResponse(data) {
@@ -687,10 +799,8 @@
         }
         
         // Сбрасываем поле Telegram
-        telegramResult.textContent = '';
-        const telegramResultElement = telegramResult.parentElement;
-        telegramResultElement.classList.add('inactive');
-        telegramResultElement.classList.remove('copied');
+        telegramField.clear();
+        telegramField.container.classList.add('inactive');
         
         // Сбрасываем статус на начальный
         setStatus('Ready');
@@ -702,9 +812,9 @@
       async function autoGetTelegram(profile) {
         const chatId = profile?.chat?.chat_id || profile?.chat?.chatId || profile?.chat?.id || profile?.chat_id;
         const threadId = profile?.chat?.id || profile?.chat?.thread_id || profile?.chat?.threadId;
-        const customerEmail = profile?.email;
+        const customerEmail = extractCustomerEmail(profile);
 
-        if (!chatId || !threadId || !customerEmail) {
+        if (!chatId || !threadId) {
           console.log('Missing required data for auto Telegram fetch:', { chatId, threadId, customerEmail });
           return;
         }
@@ -712,9 +822,9 @@
         const body = {
           chat_id: chatId,
           thread_id: threadId,
-          customer_email: customerEmail,
           profile: compactProfile(profile),
-          client_time_zone: browserTimeZone
+          client_time_zone: browserTimeZone,
+          customer_email: customerEmail || null
         };
 
         try {
@@ -756,14 +866,11 @@
           // Сбрасываем саммари при переключении диалога
           clearSummary();
           
-          // Проверяем, есть ли email у клиента
-          if (profile?.email) {
-            try {
-              await autoGetTelegram(profile);
-            } catch (error) {
-              console.error('Auto Telegram fetch failed:', error);
-              // Не показываем ошибку пользователю, чтобы не мешать работе
-            }
+          try {
+            await autoGetTelegram(profile);
+          } catch (error) {
+            console.error('Auto Telegram fetch failed:', error);
+            // Не показываем ошибку пользователю, чтобы не мешать работе
           }
         });
         
@@ -891,11 +998,10 @@
           const profile = await widget.getCustomerProfile();
           const chatId = profile?.chat?.chat_id || profile?.chat?.chatId || profile?.chat?.id || profile?.chat_id;
           const threadId = profile?.chat?.id || profile?.chat?.thread_id || profile?.chat?.threadId;
-          const customerEmail = profile?.email;
-          
-          // Получаем введенный пользователем Telegram-ник из contenteditable div
-          const telegramDiv = telegramResult.parentElement;
-          const newTelegramUsername = telegramDiv.textContent.trim();
+          const customerEmail = extractCustomerEmail(profile);
+
+          // Получаем введенный пользователем Telegram-ник
+          const newTelegramUsername = telegramField.get();
 
           if (!chatId || !threadId) {
             setStatus("❌ No chatId/threadId", "err");
@@ -908,9 +1014,6 @@
             hideLoading();
             return;
           }
-          
-          // Убрана проверка на пустое значение и минимальную длину,
-          // чтобы оператор мог оставить поле пустым и стереть ник в Телеграме
 
           const body = {
             chat_id: chatId,
@@ -933,90 +1036,93 @@
 
           if (!resp.ok) {
             const text = await resp.text();
+            console.error('Telegram update failed:', resp.status, text);
             setStatus("❌ Telegram update failed: " + resp.status, "err");
-            hideLoading();
-            // Сохраняем введенное пользователем значение
-            telegramResult.textContent = newTelegramUsername;
-            const telegramResultElement = telegramResult.parentElement;
-            telegramResultElement.classList.remove('inactive');
+            telegramField.set(newTelegramUsername, { active: true });
             return;
           }
 
           const data = await resp.json();
-          
-          // Process the new response format from n8n
-          if (data.updated_tg_username) {
-            // Get the updated username from the response
-            const updatedUsername = data.updated_tg_username;
-            
-            // Update the Telegram username field
-            telegramResult.textContent = updatedUsername;
-            const telegramResultElement = telegramResult.parentElement;
-            telegramResultElement.classList.remove('inactive');
-            
-            // Show success status
-            setStatus("✅ Telegram username updated successfully", "ok");
-          } else if (data.not_found_in_pipedrive === true) {
-            // Handle the case when user is not found in PipeDrive (new format from automation)
-            telegramResult.textContent = newTelegramUsername;
-            const telegramResultElement = telegramResult.parentElement;
-            telegramResultElement.classList.remove('inactive');
-            setStatus("❌ User not found in PipeDrive - cannot update Telegram", "err");
-          } else if (data.user_found === false) {
-            // Keep the user-entered value instead of clearing (legacy format)
-            telegramResult.textContent = newTelegramUsername;
-            const telegramResultElement = telegramResult.parentElement;
-            telegramResultElement.classList.remove('inactive');
-            setStatus("❌ User not found in PipeDrive", "err");
-          } else if (data.user_found === true) {
-             // User found, show only the real Telegram username
-             const telegramInfo = data.tg_updated || data.telegram || "";
-             // Check if it's a real username, not a message
-             if (telegramInfo && telegramInfo !== "Telegram updated successfully" && telegramInfo !== "Telegram found") {
-               telegramResult.textContent = telegramInfo;
-             } else {
-               telegramResult.textContent = ""; // Keep the field empty if no real username
-             }
-             const telegramResultElement = telegramResult.parentElement;
-             telegramResultElement.classList.remove('inactive');
-             setStatus(`✅ Telegram updated: ${telegramInfo || "No Telegram found"}`, "ok");
-          } else if (data.success) {
-            // Check if it's a real username
-            if (newTelegramUsername && typeof newTelegramUsername === 'string' && !newTelegramUsername.includes("not found") && !newTelegramUsername.includes("not in")) {
-              telegramResult.textContent = newTelegramUsername;
-            } else {
-              telegramResult.textContent = ""; // Keep the field empty if no real username
-            }
-            const telegramResultElement = telegramResult.parentElement;
-            telegramResultElement.classList.remove('inactive');
-            setStatus("✅ Telegram username updated successfully", "ok");
-          } else {
-            // Backward compatibility with old format
-            const telegramInfo = data.telegram || data.telegram_username || data.telegram_id || "";
-            // Check if it's a real username, not a message
-            if (telegramInfo && telegramInfo !== "Telegram not found in Pipedrive" && !telegramInfo.includes("not found")) {
-              telegramResult.textContent = telegramInfo;
-            } else {
-              telegramResult.textContent = ""; // Keep the field empty if no real username
-            }
-            const telegramResultElement = telegramResult.parentElement;
-            telegramResultElement.classList.remove('inactive');
-            
-            if (!telegramInfo || telegramInfo === "Telegram not found in Pipedrive") {
-              setStatus("❌ Telegram info not found", "err");
-            } else {
-              setStatus("✅ Telegram info loaded", "ok");
-            }
+          const normalizedResponse = handleTelegramUpdateResponse(data, newTelegramUsername);
+          telegramField.set(normalizedResponse.username, { active: true });
+          if (normalizedResponse.status) {
+            setStatus(normalizedResponse.status.text, normalizedResponse.status.className);
           }
-          
-          hideLoading();
         } catch (err) {
           console.error("Update Telegram error:", err);
           setStatus("❌ Update Telegram error", "err");
+        } finally {
           hideLoading();
         }
       });
       
+      function handleTelegramUpdateResponse(data, requestedUsername) {
+        const defaultResult = {
+          username: telegramField.normalize(requestedUsername),
+          status: { text: '✅ Telegram username updated successfully', className: 'ok' }
+        };
+
+        if (!data || typeof data !== 'object') {
+          return defaultResult;
+        }
+
+        if (data.not_found_in_pipedrive === true) {
+          return {
+            username: '',
+            status: { text: '❌ Telegram info not found in PipeDrive', className: 'err' }
+          };
+        }
+
+        if (Object.prototype.hasOwnProperty.call(data, 'updated_tg_username')) {
+          const updated = telegramField.normalize(data.updated_tg_username);
+          return {
+            username: updated,
+            status: {
+              text: updated ? '✅ Telegram username updated successfully' : '✅ Telegram username removed successfully',
+              className: 'ok'
+            }
+          };
+        }
+
+        if (data.user_found === false) {
+          return {
+            username: '',
+            status: { text: '❌ Telegram info not found in PipeDrive', className: 'err' }
+          };
+        }
+
+        if (data.success === false) {
+          return {
+            username: telegramField.normalize(requestedUsername),
+            status: { text: '❌ Telegram update failed', className: 'err' }
+          };
+        }
+
+        const interpreted = interpretTelegramLookupResponse(data);
+        if (interpreted.username) {
+          return {
+            username: interpreted.username,
+            status: { text: '✅ Telegram username updated successfully', className: 'ok' }
+          };
+        }
+
+        if (interpreted.status === TELEGRAM_STATUS_MESSAGES.userNotFound) {
+          return {
+            username: '',
+            status: { text: '❌ Telegram info not found in PipeDrive', className: 'err' }
+          };
+        }
+
+        if (interpreted.status === TELEGRAM_STATUS_MESSAGES.invalid) {
+          return {
+            username: telegramField.normalize(requestedUsername),
+            status: { text: '❌ Invalid Telegram username', className: 'err' }
+          };
+        }
+
+        return defaultResult;
+      }
+
     })();
   </script>
 </body>
