@@ -857,18 +857,8 @@
             return;
           }
           
-          if (!newTelegramUsername) {
-            setStatus("❌ Please enter Telegram username", "err");
-            hideLoading();
-            return;
-          }
-          
-          // Проверка минимальной длины Telegram-ника (5 символов)
-          if (newTelegramUsername.length < 5) {
-            setStatus("❌ Telegram username must be at least 5 characters", "err");
-            hideLoading();
-            return;
-          }
+          // Убрана проверка на пустое значение и минимальную длину,
+          // чтобы оператор мог оставить поле пустым и стереть ник в Телеграме
 
           const body = {
             chat_id: chatId,
