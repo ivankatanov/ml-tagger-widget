@@ -912,8 +912,14 @@
             
             // Show success status
             setStatus("✅ Telegram username updated successfully", "ok");
+          } else if (data.not_found_in_pipedrive === true) {
+            // Handle the case when user is not found in PipeDrive (new format from automation)
+            telegramResult.textContent = newTelegramUsername;
+            const telegramResultElement = telegramResult.parentElement;
+            telegramResultElement.classList.remove('inactive');
+            setStatus("❌ User not found in PipeDrive - cannot update Telegram", "err");
           } else if (data.user_found === false) {
-            // Keep the user-entered value instead of clearing
+            // Keep the user-entered value instead of clearing (legacy format)
             telegramResult.textContent = newTelegramUsername;
             const telegramResultElement = telegramResult.parentElement;
             telegramResultElement.classList.remove('inactive');
