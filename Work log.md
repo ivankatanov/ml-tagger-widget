@@ -11,6 +11,11 @@
 4. Добавлена отдельная кнопка копирования для Telegram-ника
 5. Обновлен текст инструкции под полем
 
+#### Дополнительные изменения (11.09.2023)
+1. Удалена надпись "Auto-fetch enabled - Telegram will load automatically" из поля Telegram
+2. Перемещена кнопка копирования под кнопку "Update TG Username"
+3. Обновлен текст подсказки для большей ясности
+
 #### Изменения в JavaScript
 1. Добавлена константа `UPDATE_TELEGRAM_WEBHOOK` со значением `"https://npm.mlx.yt/webhook/livechat/update-telegram"`
 2. Заменена переменная `btnTelegram` на `btnUpdateTelegram`, связанная с новой кнопкой
