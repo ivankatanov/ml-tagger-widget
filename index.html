@@ -601,7 +601,7 @@
             
             // Проверяем специальный формат для неправильного телеграма
             if (data["telegram_is_wrong"] === "true") {
-                telegramResult.textContent = "";
+                telegramResult.parentElement.textContent = "";
                 const telegramResultElement = telegramResult.parentElement;
                 telegramResultElement.classList.remove('inactive');
                 console.log('Wrong Telegram username for customer:', customerEmail);
@@ -612,7 +612,7 @@
             else if (data.user_found === false) {
               console.log('User not found in PipeDrive for email:', customerEmail);
               // Оставляем поле пустым, но делаем его активным
-              telegramResult.textContent = "";
+              telegramResult.parentElement.textContent = "";
               const telegramResultElement = telegramResult.parentElement;
               telegramResultElement.classList.remove('inactive');
               // Обновляем статус Ready
@@ -624,7 +624,7 @@
               // Проверяем, был ли явно передан пустой телеграм (удален)
               if (data.hasOwnProperty("new_telegram_username") && data.new_telegram_username === "") {
                 // Если телеграм был явно удален
-                telegramResult.textContent = "";
+                telegramResult.parentElement.textContent = "";
                 const telegramResultElement = telegramResult.parentElement;
                 telegramResultElement.classList.remove('inactive');
                 console.log('Telegram username was deleted');
@@ -632,7 +632,7 @@
               }
               // Заполняем поле только если есть реальный Telegram ник
               else if (telegramInfo && telegramInfo !== "Telegram found") {
-                telegramResult.textContent = telegramInfo;
+                telegramResult.parentElement.textContent = telegramInfo;
                 const telegramResultElement = telegramResult.parentElement;
                 telegramResultElement.classList.remove('inactive');
                 console.log('Auto-fetched Telegram:', telegramInfo);
@@ -640,7 +640,7 @@
                 setStatus('Telegram username found', 'ok');
               } else {
                 // Если нет реального ника, оставляем поле пустым
-                telegramResult.textContent = "";
+                telegramResult.parentElement.textContent = "";
                 const telegramResultElement = telegramResult.parentElement;
                 telegramResultElement.classList.remove('inactive');
                 console.log('No real Telegram username found');
@@ -652,7 +652,7 @@
               // Проверяем формат [{ "telegram_is": "<ник в телеграме>" }]
               if (Array.isArray(data) && data.length > 0 && data[0].telegram_is) {
                 const telegramInfo = data[0].telegram_is;
-                telegramResult.textContent = telegramInfo;
+                telegramResult.parentElement.textContent = telegramInfo;
                 const telegramResultElement = telegramResult.parentElement;
                 telegramResultElement.classList.remove('inactive');
                 console.log('Auto-fetched Telegram:', telegramInfo);
@@ -665,7 +665,7 @@
                 
                 // Заполняем поле только если есть реальный Telegram ник
                 if (telegramInfo && telegramInfo !== "Telegram not found in Pipedrive") {
-                  telegramResult.textContent = telegramInfo;
+                  telegramResult.parentElement.textContent = telegramInfo;
                   const telegramResultElement = telegramResult.parentElement;
                   telegramResultElement.classList.remove('inactive');
                   console.log('Auto-fetched Telegram:', telegramInfo);
@@ -673,7 +673,7 @@
                   setStatus('Telegram username found', 'ok');
                 } else {
                   // Если нет реального ника, оставляем поле пустым
-                  telegramResult.textContent = "";
+                  telegramResult.parentElement.textContent = "";
                   const telegramResultElement = telegramResult.parentElement;
                   telegramResultElement.classList.remove('inactive');
                   console.log('Telegram not found for customer:', customerEmail);
@@ -684,7 +684,7 @@
             }
           } else {
             // При неудачном запросе оставляем поле пустым
-            telegramResult.textContent = "";
+            telegramResult.parentElement.textContent = "";
             const telegramResultElement = telegramResult.parentElement;
             telegramResultElement.classList.remove('inactive');
             console.error('Failed to fetch Telegram info, status:', resp.status);
@@ -693,7 +693,7 @@
         } catch (error) {
           console.error('Auto Telegram fetch request failed:', error);
           // При ошибке оставляем поле пустым
-          telegramResult.textContent = "";
+          telegramResult.parentElement.textContent = "";
           const telegramResultElement = telegramResult.parentElement;
           telegramResultElement.classList.remove('inactive');
           setStatus('Error fetching Telegram info', 'err');
@@ -1010,16 +1010,16 @@
           
           if (data.user_found === false) {
             console.log("User not found in PipeDrive during auto fetch");
-            telegramResult.textContent = ""; // Оставляем поле пустым
             const telegramResultElement = telegramResult.parentElement;
+            telegramResultElement.textContent = ""; // Оставляем поле пустым
             telegramResultElement.classList.remove('inactive');
             setStatus('Telegram username not found', 'err');
             return;
           }
           
           if (data.user_found === true && data.tg_updated) {
-            telegramResult.textContent = data.tg_updated;
             const telegramResultElement = telegramResult.parentElement;
+            telegramResultElement.textContent = data.tg_updated;
             telegramResultElement.classList.remove('inactive');
             setStatus('Telegram username found', 'ok');
             return;
@@ -1027,8 +1027,8 @@
           
           const telegramInfo = data.telegram || data.telegram_username || data.telegram_id || data.tg_updated;
           if (telegramInfo) {
-            telegramResult.textContent = telegramInfo;
             const telegramResultElement = telegramResult.parentElement;
+            telegramResultElement.textContent = telegramInfo;
             telegramResultElement.classList.remove('inactive');
             setStatus('Telegram username found', 'ok');
           }
