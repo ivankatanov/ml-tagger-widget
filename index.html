@@ -867,6 +867,7 @@
             thread_id: threadId,
             customer_email: customerEmail,
             telegram_username: newTelegramUsername,
+            new_telegram_username: newTelegramUsername, // Добавляем новый ключ
             profile: compactProfile(profile),
             client_time_zone: browserTimeZone
           };
@@ -884,6 +885,10 @@
             const text = await resp.text();
             setStatus("❌ Telegram update failed: " + resp.status, "err");
             hideLoading();
+            // Сохраняем введенное пользователем значение
+            telegramResult.textContent = newTelegramUsername;
+            const telegramResultElement = telegramResult.parentElement;
+            telegramResultElement.classList.remove('inactive');
             return;
           }
 
@@ -891,7 +896,8 @@
           
           // Проверяем новую структуру ответа с user_found
           if (data.user_found === false) {
-            telegramResult.textContent = ""; // Оставляем поле пустым
+            // Сохраняем введенное пользователем значение вместо очистки
+            telegramResult.textContent = newTelegramUsername;
             const telegramResultElement = telegramResult.parentElement;
             telegramResultElement.classList.remove('inactive');
             setStatus("❌ User not found in PipeDrive", "err");
