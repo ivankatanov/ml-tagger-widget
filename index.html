@@ -331,8 +331,8 @@
           <span id="telegramResult"></span>
         </div>
         <button id="updateTelegramBtn">📝 Update TG Username</button>
+        <button class="copy-btn" onclick="copyTelegramResult()" title="Copy">📋</button>
       </div>
-      <button class="copy-btn" onclick="copyTelegramResult()" title="Copy" style="margin-top: 8px;">📋 Copy</button>
       <div class="small" style="margin-top: 8px; color: #65676b;">
         💡 The Telegram username is fetched automatically when you open a chat. If you want to change the client's Telegram username in Pipedrive – enter the username and click the Update TG Username button.
       </div>
@@ -551,7 +551,7 @@
         }
         
         // Сбрасываем поле Telegram
-        telegramResult.textContent = 'Auto-fetch enabled - Telegram will load automatically';
+        telegramResult.textContent = '';
         const telegramResultElement = telegramResult.parentElement;
         telegramResultElement.classList.add('inactive');
         telegramResultElement.classList.remove('copied');
