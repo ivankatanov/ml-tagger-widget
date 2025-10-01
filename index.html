@@ -599,8 +599,17 @@
           if (resp.ok) {
             const data = await resp.json();
             
+            // Проверяем специальный формат для неправильного телеграма
+            if (data["telegram_is wrong"] === "true") {
+                telegramResult.textContent = "";
+                const telegramResultElement = telegramResult.parentElement;
+                telegramResultElement.classList.remove('inactive');
+                console.log('Wrong Telegram username for customer:', customerEmail);
+                // Обновляем статус Ready
+                setStatus('Telegram username not found', 'err');
+            }
             // Проверяем структуру ответа с user_found
-            if (data.user_found === false) {
+            else if (data.user_found === false) {
               console.log('User not found in PipeDrive for email:', customerEmail);
               // Оставляем поле пустым, но делаем его активным
               telegramResult.textContent = "";
@@ -640,15 +649,6 @@
                 console.log('Auto-fetched Telegram:', telegramInfo);
                 // Обновляем статус Ready
                 setStatus('Telegram username found', 'ok');
-              } 
-              // Проверяем формат { "telegram_is wrong": "true" }
-              else if (data["telegram_is wrong"] === "true") {
-                telegramResult.textContent = "";
-                const telegramResultElement = telegramResult.parentElement;
-                telegramResultElement.classList.remove('inactive');
-                console.log('Wrong Telegram username for customer:', customerEmail);
-                // Обновляем статус Ready
-                setStatus('Telegram username not found', 'err');
               }
               // Стандартная обработка
               else {
