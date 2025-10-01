@@ -621,8 +621,17 @@
               // Получаем Telegram из ответа
               const telegramInfo = data.tg_updated || data.telegram || "";
               
+              // Проверяем, был ли явно передан пустой телеграм (удален)
+              if (data.hasOwnProperty("new_telegram_username") && data.new_telegram_username === "") {
+                // Если телеграм был явно удален
+                telegramResult.textContent = "";
+                const telegramResultElement = telegramResult.parentElement;
+                telegramResultElement.classList.remove('inactive');
+                console.log('Telegram username was deleted');
+                setStatus('Telegram username was deleted', 'err');
+              }
               // Заполняем поле только если есть реальный Telegram ник
-              if (telegramInfo && telegramInfo !== "Telegram found") {
+              else if (telegramInfo && telegramInfo !== "Telegram found") {
                 telegramResult.textContent = telegramInfo;
                 const telegramResultElement = telegramResult.parentElement;
                 telegramResultElement.classList.remove('inactive');
