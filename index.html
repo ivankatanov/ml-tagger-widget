@@ -957,7 +957,7 @@
           
           if (data.user_found === false) {
             console.log("User not found in PipeDrive during auto fetch");
-            telegramResult.textContent = "User not found in PipeDrive";
+            telegramResult.textContent = ""; // Оставляем поле пустым
             const telegramResultElement = telegramResult.parentElement;
             telegramResultElement.classList.remove('inactive');
             setStatus('Telegram username not found', 'err');
