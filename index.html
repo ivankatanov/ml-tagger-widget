@@ -850,8 +850,9 @@
           const threadId = profile?.chat?.id || profile?.chat?.thread_id || profile?.chat?.threadId;
           const customerEmail = profile?.email;
           
-          // Получаем введенный пользователем Telegram-ник
-          const newTelegramUsername = telegramResult.textContent.trim();
+          // Получаем введенный пользователем Telegram-ник из contenteditable div
+          const telegramDiv = telegramResult.parentElement;
+          const newTelegramUsername = telegramDiv.textContent.trim();
 
           if (!chatId || !threadId) {
             setStatus("❌ No chatId/threadId", "err");
