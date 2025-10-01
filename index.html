@@ -562,7 +562,7 @@
         telegramResultElement.classList.remove('copied');
         
         // Сбрасываем статус на начальный
-        setStatus('Ready', 'ok');
+        setStatus('Ready');
         
         console.log('Summary and Telegram cleared for new dialog');
       }
@@ -599,7 +599,7 @@
           if (resp.ok) {
             const data = await resp.json();
             
-            // Проверяем новую структуру ответа с user_found
+            // Проверяем структуру ответа с user_found
             if (data.user_found === false) {
               console.log('User not found in PipeDrive for email:', customerEmail);
               // Показываем информационное уведомление в виджете
@@ -904,11 +904,14 @@
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              "X-Webhook-Secret": WEBHOOK_SECRET
             },
             body: JSON.stringify({
               chat_id: chatId,
               thread_id: threadId,
-              email: customerEmail,
+              customer_email: customerEmail,
+              profile: compactProfile(profile),
+              client_time_zone: browserTimeZone
             }),
           });
           
@@ -921,14 +924,19 @@
           
           if (data.user_found === false) {
             console.log("User not found in PipeDrive during auto fetch");
+            telegramResult.textContent = "User not found in PipeDrive";
+            const telegramResultElement = telegramResult.parentElement;
+            telegramResultElement.classList.remove('inactive');
+            setStatus('Telegram username not found', 'err');
             return;
           }
           
-          const telegramInfo = data.telegram || data.telegram_username || data.telegram_id;
+          const telegramInfo = data.telegram || data.telegram_username || data.telegram_id || data.tg_updated;
           if (telegramInfo) {
             telegramResult.textContent = telegramInfo;
             const telegramResultElement = telegramResult.parentElement;
             telegramResultElement.classList.remove('inactive');
+            setStatus('Telegram username found', 'ok');
           }
         } catch (err) {
           console.error("Auto Telegram fetch error:", err);
