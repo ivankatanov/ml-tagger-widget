@@ -1,0 +1,84 @@
+[
+  {
+    "headers": {
+      "host": "npm.mlx.yt",
+      "x-forwarded-scheme": "https",
+      "x-forwarded-proto": "https",
+      "x-forwarded-for": "80.74.29.34, 141.101.76.157",
+      "x-real-ip": "141.101.76.157",
+      "content-length": "1014",
+      "sec-fetch-dest": "empty",
+      "referer": "https://ivankatanov.github.io/",
+      "priority": "u=1, i",
+      "accept-language": "ru,en;q=0.9",
+      "cf-ray": "987d7570d91bfb95-AMS",
+      "accept-encoding": "gzip, br",
+      "sec-ch-ua-platform": "\"Windows\"",
+      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 YaBrowser/25.8.0.0 Safari/537.36",
+      "sec-ch-ua": "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\", \"YaBrowser\";v=\"25.8\", \"Yowser\";v=\"2.5\"",
+      "content-type": "application/json",
+      "sec-ch-ua-mobile": "?0",
+      "x-webhook-secret": "replace-with-real-secret",
+      "accept": "*/*",
+      "origin": "https://ivankatanov.github.io",
+      "sec-fetch-site": "cross-site",
+      "sec-fetch-mode": "cors",
+      "cdn-loop": "cloudflare; loops=1",
+      "cf-connecting-ip": "80.74.29.34",
+      "cf-ipcountry": "NL",
+      "cf-visitor": "{\"scheme\":\"https\"}"
+    },
+    "params": {},
+    "query": {},
+    "body": {
+      "chat_id": "T33G4GAYEH",
+      "thread_id": "T33G4GAYFH",
+      "customer_email": "coffeebreakext@gmail.com",
+      "telegram_username": "",
+      "new_telegram_username": "",
+      "profile": {
+        "id": "3146fefc-6c75-4ba9-9b3c-699c402be729",
+        "name": "Visitor",
+        "email": "coffeebreakext@gmail.com",
+        "geolocation": {
+          "city": "Chandigarh",
+          "country": "India",
+          "country_code": "IN",
+          "latitude": "30.7339",
+          "longitude": "76.7889",
+          "region": "Chandigarh",
+          "timezone": "Asia/Kolkata"
+        },
+        "customVariables": {
+          "language": "en",
+          "plan": "Trial Plan",
+          "role": "owner",
+          "source": "MLX",
+          "workspaceId": "bb10da6b-ce8d-4326-bde8-8ed58d6cafcf",
+          "billingId": ""
+        },
+        "preChatSurvey": [
+          {
+            "question": "Select the issue that you're facing",
+            "answer": "I'm facing application issues"
+          },
+          {
+            "question": "Kindly describe the issue in 1-2 sentences, making sure to include any error messages received, if possible.",
+            "answer": "proxy got me banned"
+          },
+          {
+            "question": "Email",
+            "answer": "coffeebreakext@gmail.com"
+          },
+          {
+            "question": "Interested in our exclusive offers? Leave your TG contact @",
+            "answer": ""
+          }
+        ]
+      },
+      "client_time_zone": "Europe/Moscow"
+    },
+    "webhookUrl": "https://npm.mlx.yt/webhook/livechat/update-telegram",
+    "executionMode": "production"
+  }
+]
