@@ -599,8 +599,8 @@
           if (resp.ok) {
             const data = await resp.json();
             
-            // Проверяем специальный формат для неправильного телеграма
-            if (data["telegram_is wrong"] === "true") {
+            // Проверяем специальный формат для неправильного телеграма (оба варианта написания)
+            if (data["telegram_is wrong"] === "true" || data["telegram_is_wrong"] === "true") {
                 telegramResult.textContent = "";
                 const telegramResultElement = telegramResult.parentElement;
                 telegramResultElement.classList.remove('inactive');
