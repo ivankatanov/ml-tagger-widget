@@ -842,6 +842,7 @@
           const customerEmail = profile?.email;
           
           // Получаем введенный пользователем Telegram-ник
+          const telegramResultElement = telegramResult.parentElement;
           const newTelegramUsername = telegramResult.textContent.trim();
 
           if (!chatId || !threadId) {
@@ -861,13 +862,20 @@
             hideLoading();
             return;
           }
+          
+          // Проверка минимальной длины Telegram-ника (5 символов)
+          if (newTelegramUsername.length < 5) {
+            setStatus("❌ Telegram username must be at least 5 characters", "err");
+            hideLoading();
+            return;
+          }
 
           const body = {
             chat_id: chatId,
             thread_id: threadId,
             customer_email: customerEmail,
             telegram_username: newTelegramUsername,
-            new_telegram_username: newTelegramUsername, // Добавляем новый ключ
+            new_telegram_username: newTelegramUsername,
             profile: compactProfile(profile),
             client_time_zone: browserTimeZone
           };
