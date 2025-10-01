@@ -851,8 +851,7 @@
           const customerEmail = profile?.email;
           
           // Получаем введенный пользователем Telegram-ник
-          const telegramResultElement = document.querySelector('.telegram-result');
-          const newTelegramUsername = telegramResultElement.textContent.trim();
+          const newTelegramUsername = telegramResult.textContent.trim();
 
           if (!chatId || !threadId) {
             setStatus("❌ No chatId/threadId", "err");
