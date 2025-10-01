@@ -328,7 +328,7 @@
     <div class="telegram-section">
       <div class="section">
         <div class="field-header">
-          <label for="telegramResult"><strong>Telegram Username</strong></label>
+          <label for="telegramResult">Telegram Username</label>
           <button class="copy-btn" onclick="copyTelegramResult()" title="Copy">📋</button>
         </div>
         <div class="telegram-controls">
@@ -606,12 +606,16 @@
               telegramResult.textContent = "User not found in PipeDrive";
               const telegramResultElement = telegramResult.parentElement;
               telegramResultElement.classList.remove('inactive');
+              // Обновляем статус Ready
+              setStatus('Telegram username not found', 'err');
             } else if (data.user_found === true) {
               const telegramInfo = data.tg_updated || data.telegram || "Telegram found";
               telegramResult.textContent = telegramInfo;
               const telegramResultElement = telegramResult.parentElement;
               telegramResultElement.classList.remove('inactive');
               console.log('Auto-fetched Telegram:', telegramInfo);
+              // Обновляем статус Ready
+              setStatus('Telegram username found', 'ok');
             } else {
               // Обратная совместимость со старым форматом
               const telegramInfo = data.telegram || data.telegram_username || data.telegram_id || "Telegram not found in Pipedrive";
@@ -623,8 +627,12 @@
               
               if (telegramInfo !== "Telegram not found in Pipedrive") {
                 console.log('Auto-fetched Telegram:', telegramInfo);
+                // Обновляем статус Ready
+                setStatus('Telegram username found', 'ok');
               } else {
                 console.log('Telegram not found for customer:', customerEmail);
+                // Обновляем статус Ready
+                setStatus('Telegram username not found', 'err');
               }
             }
           } else {
