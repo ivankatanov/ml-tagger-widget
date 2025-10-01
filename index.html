@@ -903,8 +903,12 @@
           
           // Process the new response format from n8n
           if (data.updated_tg_username) {
-            // Просто показываем успех, не меняем поле - оставляем то что ввел оператор
+            // Get the updated username from the response
+            const updatedUsername = data.updated_tg_username;
+            
+            // Clear and update the Telegram username field (contenteditable div)
             const telegramResultElement = telegramResult.parentElement;
+            telegramResultElement.textContent = updatedUsername;
             telegramResultElement.classList.remove('inactive');
             
             // Show success status
@@ -912,33 +916,47 @@
           } else if (data.not_found_in_pipedrive === true) {
             // Handle the case when user is not found in PipeDrive (new format from automation)
             const telegramResultElement = telegramResult.parentElement;
+            telegramResultElement.textContent = newTelegramUsername;
             telegramResultElement.classList.remove('inactive');
             setStatus("❌ User not found in PipeDrive - cannot update Telegram", "err");
           } else if (data.user_found === false) {
             // Keep the user-entered value instead of clearing (legacy format)
             const telegramResultElement = telegramResult.parentElement;
+            telegramResultElement.textContent = newTelegramUsername;
             telegramResultElement.classList.remove('inactive');
             setStatus("❌ User not found in PipeDrive", "err");
           } else if (data.user_found === true) {
-             // User found, просто показываем успех, не меняем поле
+             // User found, show only the real Telegram username
+             const telegramInfo = data.tg_updated || data.telegram || "";
              const telegramResultElement = telegramResult.parentElement;
+             // Check if it's a real username, not a message
+             if (telegramInfo && telegramInfo !== "Telegram updated successfully" && telegramInfo !== "Telegram found") {
+               telegramResultElement.textContent = telegramInfo;
+             } else {
+               telegramResultElement.textContent = ""; // Keep the field empty if no real username
+             }
              telegramResultElement.classList.remove('inactive');
-             setStatus("✅ Telegram username updated successfully", "ok");
+             setStatus(`✅ Telegram updated: ${telegramInfo || "No Telegram found"}`, "ok");
           } else if (data.success) {
-            // Просто показываем успех, не меняем поле - оставляем то что ввел оператор
+            // Check if it's a real username
             const telegramResultElement = telegramResult.parentElement;
+            if (newTelegramUsername && typeof newTelegramUsername === 'string' && !newTelegramUsername.includes("not found") && !newTelegramUsername.includes("not in")) {
+              telegramResultElement.textContent = newTelegramUsername;
+            } else {
+              telegramResultElement.textContent = ""; // Keep the field empty if no real username
+            }
             telegramResultElement.classList.remove('inactive');
             setStatus("✅ Telegram username updated successfully", "ok");
           } else {
             // Backward compatibility with old format
             const telegramInfo = data.telegram || data.telegram_username || data.telegram_id || "";
+            const telegramResultElement = telegramResult.parentElement;
             // Check if it's a real username, not a message
             if (telegramInfo && telegramInfo !== "Telegram not found in Pipedrive" && !telegramInfo.includes("not found")) {
-              telegramResult.textContent = telegramInfo;
+              telegramResultElement.textContent = telegramInfo;
             } else {
-              telegramResult.textContent = ""; // Keep the field empty if no real username
+              telegramResultElement.textContent = ""; // Keep the field empty if no real username
             }
-            const telegramResultElement = telegramResult.parentElement;
             telegramResultElement.classList.remove('inactive');
             
             if (!telegramInfo || telegramInfo === "Telegram not found in Pipedrive") {
