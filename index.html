@@ -240,7 +240,7 @@
        border-radius: 6px;
        font-size: 14px;
        color: #1c1e21;
-       cursor: pointer;
+       cursor: text;
        transition: background-color 0.2s ease;
        min-height: 20px;
        display: flex;
@@ -629,25 +629,48 @@
                 setStatus('No Telegram username found', 'err');
               }
             } else {
-              // Обратная совместимость со старым форматом
-              const telegramInfo = data.telegram || data.telegram_username || data.telegram_id || "";
+              // Обратная совместимость со старым форматом и новыми форматами
               
-              // Заполняем поле только если есть реальный Telegram ник
-              if (telegramInfo && telegramInfo !== "Telegram not found in Pipedrive") {
+              // Проверяем формат [{ "telegram_is": "<ник в телеграме>" }]
+              if (Array.isArray(data) && data.length > 0 && data[0].telegram_is) {
+                const telegramInfo = data[0].telegram_is;
                 telegramResult.textContent = telegramInfo;
                 const telegramResultElement = telegramResult.parentElement;
                 telegramResultElement.classList.remove('inactive');
                 console.log('Auto-fetched Telegram:', telegramInfo);
                 // Обновляем статус Ready
                 setStatus('Telegram username found', 'ok');
-              } else {
-                // Если нет реального ника, оставляем поле пустым
+              } 
+              // Проверяем формат { "telegram": "wrong_username" }
+              else if (data.telegram === "wrong_username") {
                 telegramResult.textContent = "";
                 const telegramResultElement = telegramResult.parentElement;
                 telegramResultElement.classList.remove('inactive');
-                console.log('Telegram not found for customer:', customerEmail);
+                console.log('Wrong Telegram username for customer:', customerEmail);
                 // Обновляем статус Ready
                 setStatus('Telegram username not found', 'err');
+              }
+              // Стандартная обработка
+              else {
+                const telegramInfo = data.telegram || data.telegram_username || data.telegram_id || "";
+                
+                // Заполняем поле только если есть реальный Telegram ник
+                if (telegramInfo && telegramInfo !== "Telegram not found in Pipedrive") {
+                  telegramResult.textContent = telegramInfo;
+                  const telegramResultElement = telegramResult.parentElement;
+                  telegramResultElement.classList.remove('inactive');
+                  console.log('Auto-fetched Telegram:', telegramInfo);
+                  // Обновляем статус Ready
+                  setStatus('Telegram username found', 'ok');
+                } else {
+                  // Если нет реального ника, оставляем поле пустым
+                  telegramResult.textContent = "";
+                  const telegramResultElement = telegramResult.parentElement;
+                  telegramResultElement.classList.remove('inactive');
+                  console.log('Telegram not found for customer:', customerEmail);
+                  // Обновляем статус Ready
+                  setStatus('Telegram username not found', 'err');
+                }
               }
             }
           } else {
@@ -961,6 +984,14 @@
             const telegramResultElement = telegramResult.parentElement;
             telegramResultElement.classList.remove('inactive');
             setStatus('Telegram username not found', 'err');
+            return;
+          }
+          
+          if (data.user_found === true && data.tg_updated) {
+            telegramResult.textContent = data.tg_updated;
+            const telegramResultElement = telegramResult.parentElement;
+            telegramResultElement.classList.remove('inactive');
+            setStatus('Telegram username found', 'ok');
             return;
           }
           
