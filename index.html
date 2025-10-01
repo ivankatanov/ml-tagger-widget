@@ -868,30 +868,45 @@
           
           // Проверяем новую структуру ответа с user_found
           if (data.user_found === false) {
-            telegramResult.textContent = "User not found in PipeDrive";
+            telegramResult.textContent = ""; // Оставляем поле пустым
             const telegramResultElement = telegramResult.parentElement;
             telegramResultElement.classList.remove('inactive');
             setStatus("❌ User not found in PipeDrive", "err");
           } else if (data.user_found === true) {
-             // Пользователь найден, показываем обновленный Telegram
-             const telegramInfo = data.tg_updated || data.telegram || "Telegram updated successfully";
-             telegramResult.textContent = telegramInfo;
+             // Пользователь найден, показываем только реальный Telegram-ник
+             const telegramInfo = data.tg_updated || data.telegram || "";
+             // Проверяем, что это реальный ник, а не сообщение
+             if (telegramInfo && telegramInfo !== "Telegram updated successfully" && telegramInfo !== "Telegram found") {
+               telegramResult.textContent = telegramInfo;
+             } else {
+               telegramResult.textContent = ""; // Оставляем поле пустым, если нет реального ника
+             }
              const telegramResultElement = telegramResult.parentElement;
              telegramResultElement.classList.remove('inactive');
-             setStatus(`✅ Telegram updated: ${telegramInfo}`, "ok");
+             setStatus(`✅ Telegram updated: ${telegramInfo || "No Telegram found"}`, "ok");
           } else if (data.success) {
-            telegramResult.textContent = newTelegramUsername;
+            // Проверяем, что это реальный ник
+            if (newTelegramUsername && typeof newTelegramUsername === 'string' && !newTelegramUsername.includes("not found") && !newTelegramUsername.includes("not in")) {
+              telegramResult.textContent = newTelegramUsername;
+            } else {
+              telegramResult.textContent = ""; // Оставляем поле пустым, если нет реального ника
+            }
             const telegramResultElement = telegramResult.parentElement;
             telegramResultElement.classList.remove('inactive');
             setStatus("✅ Telegram username updated successfully", "ok");
           } else {
             // Обратная совместимость со старым форматом
-            const telegramInfo = data.telegram || data.telegram_username || data.telegram_id || "Telegram not found in Pipedrive";
-            telegramResult.textContent = telegramInfo;
+            const telegramInfo = data.telegram || data.telegram_username || data.telegram_id || "";
+            // Проверяем, что это реальный ник, а не сообщение
+            if (telegramInfo && telegramInfo !== "Telegram not found in Pipedrive" && !telegramInfo.includes("not found")) {
+              telegramResult.textContent = telegramInfo;
+            } else {
+              telegramResult.textContent = ""; // Оставляем поле пустым, если нет реального ника
+            }
             const telegramResultElement = telegramResult.parentElement;
             telegramResultElement.classList.remove('inactive');
             
-            if (telegramInfo === "Telegram not found in Pipedrive") {
+            if (!telegramInfo || telegramInfo === "Telegram not found in Pipedrive") {
               setStatus("❌ Telegram info not found", "err");
             } else {
               setStatus("✅ Telegram info loaded", "ok");
