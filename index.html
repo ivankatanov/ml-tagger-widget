@@ -327,13 +327,14 @@
     <!-- Telegram section -->
     <div class="telegram-section">
       <div class="telegram-controls">
-        <button id="getTelegramBtn">📱 Get Telegram</button>
-        <div class="telegram-result inactive" onclick="copyTelegramResult()" title="Click to copy">
+        <div class="telegram-result inactive" contenteditable="true" title="Edit Telegram username">
           <span id="telegramResult">Auto-fetch enabled - Telegram will load automatically</span>
         </div>
+        <button id="updateTelegramBtn">📝 Update TG Username</button>
+        <button class="copy-btn" onclick="copyTelegramResult()" title="Copy">📋</button>
       </div>
       <div class="small" style="margin-top: 8px; color: #65676b;">
-        💡 Telegram info is now fetched automatically when opening a chat. Manual button available as backup.
+        💡 Telegram info is now fetched automatically when opening a chat. If you want to update user's Telegram username in Pipedrive - enter new username and click Update TG Username button.
       </div>
     </div>
 
@@ -345,7 +346,7 @@
       const loadingEl = document.getElementById('loadingIndicator');
       const btnAdd = document.getElementById('addTagBtn');
       const btnSumm = document.getElementById('summBtn');
-      const btnTelegram = document.getElementById('getTelegramBtn');
+      const btnUpdateTelegram = document.getElementById('updateTelegramBtn');
 
       const issueEl = document.getElementById('issueSummary');
       const actionsEl = document.getElementById('actionsTaken');
@@ -364,6 +365,7 @@
       const SUMMARY_WEBHOOK = "https://npm.mlx.yt/webhook/livechat/summary";
       const TAGS_WEBHOOK = "https://npm.mlx.yt/webhook/livechat/add-tags";
       const TELEGRAM_WEBHOOK = "https://npm.mlx.yt/webhook/livechat/get-telegram";
+      const UPDATE_TELEGRAM_WEBHOOK = "https://npm.mlx.yt/webhook/livechat/update-telegram";
       // Замените на реальный секрет, и пропишите такой же в n8n для проверки запроса
       const WEBHOOK_SECRET = "replace-with-real-secret";
 
@@ -377,7 +379,7 @@
       function showLoading(message = "Processing") {
         // Hide the big loading indicator
         loadingEl.style.display = 'none';
-        [btnAdd, btnSumm, btnTelegram].forEach(btn => btn.classList.add('loading'));
+        [btnAdd, btnSumm, btnUpdateTelegram].forEach(btn => btn.classList.add('loading'));
         
         // Start animated dots in status
         let dotCount = 0;
@@ -390,7 +392,7 @@
       
       function hideLoading() {
         loadingEl.style.display = 'none';
-        [btnAdd, btnSumm, btnTelegram].forEach(btn => btn.classList.remove('loading'));
+        [btnAdd, btnSumm, btnUpdateTelegram].forEach(btn => btn.classList.remove('loading'));
         
         // Stop animated dots
         if (loadingInterval) {
@@ -776,14 +778,17 @@
         }
       });
 
-      // Get Telegram flow: отправляем webhook для получения Telegram пользователя из PipeDrive
-      btnTelegram.addEventListener("click", async () => {
+      // Update Telegram flow: отправляем webhook для обновления Telegram пользователя в PipeDrive
+      btnUpdateTelegram.addEventListener("click", async () => {
         try {
-          showLoading("Getting Telegram info");
+          showLoading("Updating Telegram username");
           const profile = await widget.getCustomerProfile();
           const chatId = profile?.chat?.chat_id || profile?.chat?.chatId || profile?.chat?.id || profile?.chat_id;
           const threadId = profile?.chat?.id || profile?.chat?.thread_id || profile?.chat?.threadId;
           const customerEmail = profile?.email;
+          
+          // Получаем введенный пользователем Telegram-ник
+          const newTelegramUsername = telegramResult.textContent.trim();
 
           if (!chatId || !threadId) {
             setStatus("❌ No chatId/threadId", "err");
@@ -796,16 +801,23 @@
             hideLoading();
             return;
           }
+          
+          if (!newTelegramUsername) {
+            setStatus("❌ Please enter Telegram username", "err");
+            hideLoading();
+            return;
+          }
 
           const body = {
             chat_id: chatId,
             thread_id: threadId,
             customer_email: customerEmail,
+            telegram_username: newTelegramUsername,
             profile: compactProfile(profile),
             client_time_zone: browserTimeZone
           };
 
-          const resp = await fetch(TELEGRAM_WEBHOOK, {
+          const resp = await fetch(UPDATE_TELEGRAM_WEBHOOK, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -816,10 +828,8 @@
 
           if (!resp.ok) {
             const text = await resp.text();
-            telegramResult.textContent = "Failed to fetch Telegram info";
-            const telegramResultElement = telegramResult.parentElement;
-            telegramResultElement.classList.remove('inactive');
-            setStatus("❌ Telegram request failed: " + resp.status, "err");
+            setStatus("❌ Telegram update failed: " + resp.status, "err");
+            hideLoading();
             return;
           }
 
@@ -838,6 +848,11 @@
              const telegramResultElement = telegramResult.parentElement;
              telegramResultElement.classList.remove('inactive');
              setStatus(`✅ Telegram updated: ${telegramInfo}`, "ok");
+          } else if (data.success) {
+            telegramResult.textContent = newTelegramUsername;
+            const telegramResultElement = telegramResult.parentElement;
+            telegramResultElement.classList.remove('inactive');
+            setStatus("✅ Telegram username updated successfully", "ok");
           } else {
             // Обратная совместимость со старым форматом
             const telegramInfo = data.telegram || data.telegram_username || data.telegram_id || "Telegram not found in Pipedrive";
@@ -851,17 +866,61 @@
               setStatus("✅ Telegram info loaded", "ok");
             }
           }
-        } catch (e) {
-          telegramResult.textContent = "Error fetching Telegram info";
-          const telegramResultElement = telegramResult.parentElement;
-          telegramResultElement.classList.remove('inactive');
-          setStatus("❌ Telegram request failed", "err");
-          console.error(e);
-        } finally {
+          
+          hideLoading();
+        } catch (err) {
+          console.error("Update Telegram error:", err);
+          setStatus("❌ Update Telegram error", "err");
           hideLoading();
         }
       });
-
+      
+      // Функция для автоматического получения Telegram
+      async function autoGetTelegram(profile) {
+        const chatId = profile?.chat?.chat_id || profile?.chat?.chatId || profile?.chat?.id || profile?.chat_id;
+        const threadId = profile?.chat?.id || profile?.chat?.thread_id || profile?.chat?.threadId;
+        const customerEmail = profile?.email;
+        
+        if (!chatId || !threadId) {
+          console.error("Missing chat ID or thread ID for Telegram fetch");
+          return;
+        }
+        
+        try {
+          const resp = await fetch(TELEGRAM_WEBHOOK, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              chat_id: chatId,
+              thread_id: threadId,
+              email: customerEmail,
+            }),
+          });
+          
+          if (!resp.ok) {
+            console.error("Auto Telegram fetch failed:", resp.status);
+            return;
+          }
+          
+          const data = await resp.json();
+          
+          if (data.user_found === false) {
+            console.log("User not found in PipeDrive during auto fetch");
+            return;
+          }
+          
+          const telegramInfo = data.telegram || data.telegram_username || data.telegram_id;
+          if (telegramInfo) {
+            telegramResult.textContent = telegramInfo;
+            const telegramResultElement = telegramResult.parentElement;
+            telegramResultElement.classList.remove('inactive');
+          }
+        } catch (err) {
+          console.error("Auto Telegram fetch error:", err);
+        }
+      }
 
     })();
   </script>
