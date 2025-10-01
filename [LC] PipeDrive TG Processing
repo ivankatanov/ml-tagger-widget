@@ -1,0 +1,616 @@
+{
+  "name": "[LC] PipeDrive TG Processing",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "livechat/get-telegram",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -112
+      ],
+      "id": "18b931c2-9ccd-4e0d-ab3a-95f7ce54fc4a",
+      "name": "Webhook",
+      "webhookId": "80677151-39d9-468f-ae60-4e8e81d6dd0d"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Function node: Extract & Validate TG\nconst body = $node[\"Webhook\"].json.body || {};\nconst pre = (body.profile && body.profile.preChatSurvey);\n\n// Проверка, что preChatSurvey существует и содержит минимум 4 элемента\nif (!Array.isArray(pre) || pre.length < 4) {\n  return [{\n    json: {\n      telegram_valid: false,\n      telegram_raw: null,\n      telegram_clean: null,\n      reason: \"preChatSurvey_not_found_or_too_short\"\n    }\n  }];\n}\n\n// Берём ровно 4-й элемент (индекс 3)\nconst fourth = pre[3] || {};\nconst rawAnswer = (fourth.answer || '').toString().trim();\n\nif (!rawAnswer) {\n  return [{\n    json: {\n      telegram_valid: false,\n      telegram_raw: null,\n      telegram_clean: null,\n      reason: \"fourth_answer_empty\"\n    }\n  }];\n}\n\n// Берём первый токен (до пробела/запятой и др.)\nlet token = rawAnswer.split(/[\\s,;|]+/)[0];\n\n// Убираем все ведущие '@'\ntoken = token.replace(/^@+/, '');\n\n// Приведение к нижнему регистру (для проверки равенства стоп-слов и формата)\nconst tokenLower = token.toLowerCase();\n\n// Проверка формата: латиница, цифры, подчёркивания, длина 5–32\nconst formatRe = /^[A-Za-z0-9_]{5,32}$/;\nconst formatValid = formatRe.test(token);\n\n// Чёрный список: слова, которые не допускаются как username\nconst blacklist = new Set([\n  \"hello\",\n  \"world\",\n  \"admin\",\n  \"test\",\n  \"support\",\n  \"user\",\n  \"username\",\n  \"null\",\n  \"bot\",\n  \"channel\",\n  // ... можно добавить другие\n]);\n\nconst blacklisted = blacklist.has(tokenLower);\n\nconst valid = formatValid && !blacklisted;\n\n// telegram_clean будет с ведущим '@' при валидном имени\nconst telegramWithAt = valid ? (`@${tokenLower}`) : null;\n\nreturn [{\n  json: {\n    telegram_valid: valid,\n    telegram_raw: rawAnswer,\n    telegram_clean: telegramWithAt,   // <-- с @, или null если невалидно\n    telegram_clean_no_at: valid ? tokenLower : null, // без @\n    reason: valid\n      ? \"ok\"\n      : ( !formatValid\n          ? \"invalid_format\"\n          : \"blacklisted_username\"\n        )\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        -16
+      ],
+      "id": "08bfa33b-1ec1-4479-9276-25b17b08b503",
+      "name": "Extract & Validate TG"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9de3a18d-8444-4d73-8ccf-0eee62c65581",
+              "leftValue": "={{ $json.data.items[0].item.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "number",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2016,
+        -112
+      ],
+      "id": "29a5d11d-fb24-4c95-86cb-96f8b92bc48e",
+      "name": "If person is exists in Pipedrive"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "bc239e98-d922-47a1-b159-b1660bf7b0f9",
+              "leftValue": "={{ $('Get Telegram from cfd0a70d8c67c48fcdd01a264039b115c0acd7bd').item.json.data.cfd0a70d8c67c48fcdd01a264039b115c0acd7bd }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        896,
+        -112
+      ],
+      "id": "9e5d1488-3557-4b31-8fbd-950a3ea788d9",
+      "name": "If telegram is collected"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4038f56b-e976-4141-9ff9-be3f1ff6f6f3",
+              "leftValue": "={{ $json.telegram_valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1344,
+        -16
+      ],
+      "id": "adb9b6af-be53-41ae-9193-45f76c05fde8",
+      "name": "If telegram is real"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Fix Email Typos\nconst body = $node[\"Webhook\"].json.body || {};\nlet email = (body.profile?.email || \"\").trim().toLowerCase();\n\nif (!email.includes(\"@\")) {\n  return [{\n    json: {\n      email_original: email,\n      email_fixed: email, // оставляем как есть\n      corrected: false,\n      reason: \"no_at_symbol\"\n    }\n  }];\n}\n\nlet [local, domain] = email.split(\"@\");\n\n// Словарь типовых исправлений\nconst corrections = {\n  \"gmail.coom\": \"gmail.com\",\n  \"gmail.con\": \"gmail.com\",\n  \"gmal.com\": \"gmail.com\",\n  \"gnail.com\": \"gmail.com\",\n\n  \"yahoo.coom\": \"yahoo.com\",\n  \"yahoo.con\": \"yahoo.com\",\n\n  \"outlook.coom\": \"outlook.com\",\n  \"outlook.con\": \"outlook.com\"\n};\n\nconst originalDomain = domain;\n\n// Если домен известен → заменим\nif (corrections[domain]) {\n  domain = corrections[domain];\n}\n\nconst fixed = `${local}@${domain}`;\n\nreturn [{\n  json: {\n    email_original: email,\n    email_fixed: fixed,       // всегда есть что подставить\n    corrected: fixed !== email,\n    original_domain: originalDomain,\n    final_domain: domain\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1568,
+        -112
+      ],
+      "id": "0acc2b7f-e8c9-4a02-ba9b-994baec11bd4",
+      "name": "Email fixing"
+    },
+    {
+      "parameters": {
+        "url": "https://multilogin.pipedrive.com/api/v1/persons/search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "pipedriveApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "term",
+              "value": "={{ $json.email_fixed }}"
+            },
+            {
+              "name": "fields",
+              "value": "email"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1792,
+        -112
+      ],
+      "id": "cc22414c-3aba-4c19-92d4-d835de7cd58b",
+      "name": "Find Person",
+      "credentials": {
+        "pipedriveApi": {
+          "id": "b8EbGWnJ4cIPZfAt",
+          "name": "Pipedrive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://multilogin.pipedrive.com/api/v1/persons/{{ $json.data.items[0].item.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "pipedriveApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"cfd0a70d8c67c48fcdd01a264039b115c0acd7bd\": \"{{ $('If telegram is real').item.json.telegram_clean }}\"\n}\n\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2240,
+        -208
+      ],
+      "id": "78db004b-d83e-4fbb-96f3-3657f7dc3e0a",
+      "name": "Put Telegram",
+      "credentials": {
+        "pipedriveApi": {
+          "id": "b8EbGWnJ4cIPZfAt",
+          "name": "Pipedrive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://multilogin.pipedrive.com/api/v1/persons/search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "pipedriveApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "term",
+              "value": "={{ $json.body.customer_email || $json.body.email }}"
+            },
+            {
+              "name": "fields",
+              "value": "email"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        -112
+      ],
+      "id": "421ea51c-e10c-4921-9067-e9c7fba98c1c",
+      "name": "Get Person ID",
+      "credentials": {
+        "pipedriveApi": {
+          "id": "b8EbGWnJ4cIPZfAt",
+          "name": "Pipedrive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://multilogin.pipedrive.com/api/v1/persons/{{ $json.data.items[0].item.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "pipedriveApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        448,
+        -112
+      ],
+      "id": "5ad770ec-3a7f-433d-8742-de5eb00d2bd9",
+      "name": "Get Telegram from cfd0a70d8c67c48fcdd01a264039b115c0acd7bd",
+      "credentials": {
+        "pipedriveApi": {
+          "id": "b8EbGWnJ4cIPZfAt",
+          "name": "Pipedrive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cd800ebe-038e-4a93-9341-db71e6188c24",
+              "name": "=telegram_is",
+              "value": "={{ $json.data.cfd0a70d8c67c48fcdd01a264039b115c0acd7bd }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        672,
+        -112
+      ],
+      "id": "163d0e9f-fe5f-4826-bc4d-4f4ff1b81feb",
+      "name": "Telegram is"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={\n  \"user_found\": false\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2240,
+        -16
+      ],
+      "id": "1e118ff5-85af-48ed-9230-84fb5bc1bd3a",
+      "name": "User Not Found Response"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={\n  \"user_found\": true,\n  \"tg_updated\": \"{{ $('Extract & Validate TG').item.json.telegram_clean }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2464,
+        -208
+      ],
+      "id": "ca975bc1-4ebe-4355-a387-44400993bc67",
+      "name": "User Was Found and Telegram Updated Response"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={\n  \"telegram\": \"{{ $json.telegram_is }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1120,
+        -208
+      ],
+      "id": "a72aa2a7-26eb-43d9-9df3-68732904bf5f",
+      "name": "Telegram Username is Found"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={\n  \"not_found_in_pipedrive\": true\n} ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1568,
+        80
+      ],
+      "id": "2932c349-6700-49be-8d20-1a1985f4cc1c",
+      "name": "Correct TG Username was not found"
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "npm.mlx.yt",
+            "x-forwarded-scheme": "https",
+            "x-forwarded-proto": "https",
+            "x-forwarded-for": "80.74.29.34, 104.23.170.37",
+            "x-real-ip": "104.23.170.37",
+            "content-length": "907",
+            "sec-fetch-dest": "empty",
+            "referer": "https://ivankatanov.github.io/",
+            "priority": "u=1, i",
+            "accept-language": "ru,en;q=0.9",
+            "cf-ray": "987cce7c69999085-AMS",
+            "accept-encoding": "gzip, br",
+            "sec-ch-ua-platform": "\"Windows\"",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 YaBrowser/25.8.0.0 Safari/537.36",
+            "sec-ch-ua": "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\", \"YaBrowser\";v=\"25.8\", \"Yowser\";v=\"2.5\"",
+            "content-type": "application/json",
+            "sec-ch-ua-mobile": "?0",
+            "x-webhook-secret": "replace-with-real-secret",
+            "accept": "*/*",
+            "origin": "https://ivankatanov.github.io",
+            "sec-fetch-site": "cross-site",
+            "sec-fetch-mode": "cors",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "80.74.29.34",
+            "cf-ipcountry": "NL",
+            "cf-visitor": "{\"scheme\":\"https\"}"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "chat_id": "T32EJDDEHQ",
+            "thread_id": "T33G5I2QYH",
+            "customer_email": "marksevil003@gmail.com",
+            "profile": {
+              "id": "1152556f-36a9-4ad2-a274-d52397a0da62",
+              "name": "Visitor",
+              "email": "marksevil003@gmail.com",
+              "geolocation": {
+                "country": "Lithuania",
+                "country_code": "LT",
+                "latitude": "55.4167",
+                "longitude": "24",
+                "timezone": "Europe/Vilnius"
+              },
+              "customVariables": {
+                "language": "en",
+                "plan": "Pro_10 (monthly)",
+                "role": "owner",
+                "source": "MLX",
+                "workspaceId": "dbbb2fed-e3d9-4f21-a164-763bbe92b9aa",
+                "billingId": ""
+              },
+              "preChatSurvey": [
+                {
+                  "question": "Select the issue that you're facing",
+                  "answer": "I'm facing application issues"
+                },
+                {
+                  "question": "Kindly describe the issue in 1-2 sentences, making sure to include any error messages received, if possible.",
+                  "answer": "Hi,"
+                },
+                {
+                  "question": "Email",
+                  "answer": "marksevil003@gmail.com"
+                },
+                {
+                  "question": "Interested in our exclusive offers? Leave your TG contact @",
+                  "answer": ""
+                }
+              ]
+            },
+            "client_time_zone": "Europe/Moscow"
+          },
+          "webhookUrl": "https://npm.mlx.yt/webhook/livechat/get-telegram",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Person ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract & Validate TG": {
+      "main": [
+        [
+          {
+            "node": "If telegram is real",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If person is exists in Pipedrive": {
+      "main": [
+        [
+          {
+            "node": "Put Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "User Not Found Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If telegram is collected": {
+      "main": [
+        [
+          {
+            "node": "Telegram Username is Found",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract & Validate TG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If telegram is real": {
+      "main": [
+        [
+          {
+            "node": "Email fixing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Correct TG Username was not found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email fixing": {
+      "main": [
+        [
+          {
+            "node": "Find Person",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Person": {
+      "main": [
+        [
+          {
+            "node": "If person is exists in Pipedrive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Person ID": {
+      "main": [
+        [
+          {
+            "node": "Get Telegram from cfd0a70d8c67c48fcdd01a264039b115c0acd7bd",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Telegram from cfd0a70d8c67c48fcdd01a264039b115c0acd7bd": {
+      "main": [
+        [
+          {
+            "node": "Telegram is",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram is": {
+      "main": [
+        [
+          {
+            "node": "If telegram is collected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Put Telegram": {
+      "main": [
+        [
+          {
+            "node": "User Was Found and Telegram Updated Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Username is Found": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "03043ea9-2706-45fb-a2bd-3ed5ce3eb17a",
+  "meta": {
+    "instanceId": "48763341f0ef959dc9d5d122892637f2019b8db2b8a7371363d27789470e2ddd"
+  },
+  "id": "5cqHobnlPmWcB3f3",
+  "tags": [
+    {
+      "createdAt": "2025-09-04T08:28:02.818Z",
+      "updatedAt": "2025-09-04T08:28:02.818Z",
+      "id": "4TP2RgEGEj13by2o",
+      "name": "Production"
+    }
+  ]
+}
