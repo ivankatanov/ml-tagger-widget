@@ -361,8 +361,13 @@
       const telegramField = (() => {
         const container = telegramResult.parentElement;
 
-        function ensureStructure() {
-          if (!container.contains(telegramResult) || container.childNodes.length !== 1) {
+        function ensureSpan() {
+          if (!container.contains(telegramResult)) {
+            container.textContent = '';
+            container.appendChild(telegramResult);
+          }
+
+          if (container.childNodes.length !== 1 || container.firstChild !== telegramResult) {
             container.replaceChildren(telegramResult);
           }
         }
@@ -374,23 +379,28 @@
           return value.replace(/\s+/g, ' ').trim();
         }
 
-        function set(value, { active = true } = {}) {
-          ensureStructure();
-          const sanitized = normalize(value ?? '');
-          telegramResult.textContent = sanitized;
-          container.classList.remove('copied');
+        function applyActiveState(active) {
           if (active) {
             container.classList.remove('inactive');
           } else {
             container.classList.add('inactive');
           }
+        }
+
+        function set(value, { active = true } = {}) {
+          ensureSpan();
+          const sanitized = normalize(value ?? '');
+          telegramResult.textContent = sanitized;
+          container.classList.remove('copied');
+          applyActiveState(active);
           return sanitized;
         }
 
         function get() {
-          ensureStructure();
           const raw = container.textContent ?? '';
-          return set(raw, { active: true });
+          const sanitized = normalize(raw);
+          set(sanitized, { active: true });
+          return sanitized;
         }
 
         function clear({ keepActive = false } = {}) {
@@ -1057,8 +1067,9 @@
       });
       
       function handleTelegramUpdateResponse(data, requestedUsername) {
+        const normalizedRequested = telegramField.normalize(requestedUsername);
         const defaultResult = {
-          username: telegramField.normalize(requestedUsername),
+          username: normalizedRequested,
           status: { text: '✅ Telegram username updated successfully', className: 'ok' }
         };
 
@@ -1093,7 +1104,7 @@
 
         if (data.success === false) {
           return {
-            username: telegramField.normalize(requestedUsername),
+            username: normalizedRequested,
             status: { text: '❌ Telegram update failed', className: 'err' }
           };
         }
@@ -1115,7 +1126,7 @@
 
         if (interpreted.status === TELEGRAM_STATUS_MESSAGES.invalid) {
           return {
-            username: telegramField.normalize(requestedUsername),
+            username: normalizedRequested,
             status: { text: '❌ Invalid Telegram username', className: 'err' }
           };
         }
