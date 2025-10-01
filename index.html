@@ -607,7 +607,7 @@
               const telegramResultElement = telegramResult.parentElement;
               telegramResultElement.classList.remove('inactive');
               // Обновляем статус Ready
-              setStatus('Telegram username not found', 'err');
+              setStatus('User not found in PipeDrive', 'err');
             } else if (data.user_found === true) {
               // Получаем Telegram из ответа
               const telegramInfo = data.tg_updated || data.telegram || "";
@@ -641,8 +641,8 @@
                 // Обновляем статус Ready
                 setStatus('Telegram username found', 'ok');
               } 
-              // Проверяем формат { "telegram": "wrong_username" }
-              else if (data.telegram === "wrong_username") {
+              // Проверяем формат { "telegram_is wrong": "true" }
+              else if (data["telegram_is wrong"] === "true") {
                 telegramResult.textContent = "";
                 const telegramResultElement = telegramResult.parentElement;
                 telegramResultElement.classList.remove('inactive');
