@@ -668,7 +668,7 @@
       const TELEGRAM_STATUS_MESSAGES = {
         found: { text: '✅ Telegram username found', className: 'ok' },
         usernameNotFound: { text: '❌ Telegram username not found', className: 'err' },
-        userNotFound: { text: '❌ User not found in PipeDrive', className: 'err' },
+        userNotFound: { text: '❌ The client was not found in PipeDrive', className: 'err' },
         invalid: { text: '❌ Invalid Telegram username', className: 'err' },
         fetchError: { text: '❌ Failed to fetch Telegram info', className: 'err' }
       };
@@ -1080,7 +1080,7 @@
         if (data.not_found_in_pipedrive === true) {
           return {
             username: '',
-            status: { text: '❌ Telegram info not found in PipeDrive', className: 'err' }
+            status: { text: '❌ The client was not found in PipeDrive', className: 'err' }
           };
         }
 
@@ -1098,7 +1098,7 @@
         if (data.user_found === false) {
           return {
             username: '',
-            status: { text: '❌ Telegram info not found in PipeDrive', className: 'err' }
+            status: { text: '❌ The client was not found in PipeDrive', className: 'err' }
           };
         }
 
@@ -1120,7 +1120,7 @@
         if (interpreted.status === TELEGRAM_STATUS_MESSAGES.userNotFound) {
           return {
             username: '',
-            status: { text: '❌ Telegram info not found in PipeDrive', className: 'err' }
+            status: { text: '❌ The client was not found in PipeDrive', className: 'err' }
           };
         }
 
