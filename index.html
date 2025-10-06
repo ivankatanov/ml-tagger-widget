@@ -891,42 +891,67 @@
       }
 
       // Get Tags (пример, минимальный профиль)
-      btnAdd.addEventListener("click", async () => {
-        try {
-          showLoading("Updating tags ");
-          const profile = await widget.getCustomerProfile();
-          const chatId = profile?.chat?.chat_id || profile?.chat?.chatId || profile?.chat?.id || profile?.chat_id;
-          const threadId = profile?.chat?.id || profile?.chat?.thread_id || profile?.chat?.threadId;
-
-          if (!chatId || !threadId) {
-            setStatus("❌ No chatId/threadId", "err");
-            hideLoading();
-            return;
-          }
-
-          const body = {
-            chat_id: chatId,
-            thread_id: threadId,
-            tag: "AutoTaggingTest",
-            profile: compactProfile(profile),
-            client_time_zone: browserTimeZone
-          };
-
-          const resp = await fetch(TAGS_WEBHOOK, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Webhook-Secret": WEBHOOK_SECRET
-            },
-            body: JSON.stringify(body)
-          });
-
-          setStatus(resp.ok ? "✅ Tags updated" : "❌ Error " + resp.status, resp.ok ? "ok" : "err");
-        } catch (e) {
-          setStatus("❌ Request failed", "err");
-          console.error(e);
-        } finally {
-          hideLoading();
+      btnAdd.addEventListener("click", async () => { 
+        try { 
+          showLoading("Updating tags "); 
+ 
+          const profile = await widget.getCustomerProfile(); 
+          const chatId = profile?.chat?.chat_id || profile?.chat?.chatId || profile?.chat?.id || profile?.chat_id; 
+          const threadId = profile?.chat?.id || profile?.chat?.thread_id || profile?.chat?.threadId; 
+ 
+          if (!chatId || !threadId) { 
+            setStatus("❌ No chatId/threadId", "err"); 
+            hideLoading(); 
+            return; 
+          } 
+ 
+          // --- попытка получить runtime access token от Agent App SDK (если доступно) --- 
+          let accessToken = null; 
+          try { 
+            // Некоторые версии SDK предоставляют getApi() -> api.getAccessToken() 
+            if (typeof widget.getApi === 'function') { 
+              const api = await widget.getApi(); 
+              if (api && typeof api.getAccessToken === 'function') { 
+                accessToken = await api.getAccessToken(); 
+              } else if (api && typeof api.getToken === 'function') { 
+                accessToken = await api.getToken(); // альтернативное имя 
+              } 
+            } 
+            // fallback: если у вас в окружении есть глобальные объекты (редко), можно попробовать 
+            // if (!accessToken && window.App && typeof window.App.getApi === 'function') { ... } 
+          } catch (errToken) { 
+            console.warn('getAccessToken failed:', errToken); 
+            accessToken = null; 
+          } 
+ 
+          const body = { 
+            chat_id: chatId, 
+            thread_id: threadId, 
+            tag: "AutoTaggingTest", 
+            profile: compactProfile(profile), 
+            client_time_zone: browserTimeZone 
+          }; 
+ 
+          const headers = { 
+            "Content-Type": "application/json" 
+            // НЕ оставляем X-Webhook-Secret в публичном HTML 
+          }; 
+          if (accessToken) { 
+            headers["Authorization"] = `Bearer ${accessToken}`; 
+          } 
+ 
+          const resp = await fetch(TAGS_WEBHOOK, { 
+            method: "POST", 
+            headers, 
+            body: JSON.stringify(body) 
+          }); 
+ 
+          setStatus(resp.ok ? "✅ Tags updated" : "❌ Error " + resp.status, resp.ok ? "ok" : "err"); 
+        } catch (e) { 
+          setStatus("❌ Request failed", "err"); 
+          console.error(e); 
+        } finally { 
+          hideLoading(); 
         }
       });
 
