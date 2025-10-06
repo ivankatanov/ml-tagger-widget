@@ -477,6 +477,15 @@
       }
 
       function updateMsAuthUI() {
+        const isAuthorized = Boolean(msAccount);
+
+        if (btnAdd) {
+          btnAdd.disabled = !isAuthorized;
+          btnAdd.title = isAuthorized
+            ? 'Request tags for the current chat'
+            : 'Sign in with Microsoft 365 to enable tag updates';
+        }
+
         if (!msAuthAccount) {
           return;
         }
@@ -648,6 +657,7 @@
         msAuthBtn.addEventListener('click', handleMsalLogin);
       }
 
+      updateMsAuthUI();
       await initializeMsal();
 
       const telegramField = (() => {
@@ -1187,7 +1197,20 @@
       // Get Tags (пример, минимальный профиль)
       btnAdd.addEventListener("click", async () => {
         try {
+          if (!msAccount) {
+            setStatus('❌ Sign in with Microsoft 365 to add tags', 'err');
+            return;
+          }
+
+          const accessToken = await acquireGraphToken(msAccount);
+
+          if (!accessToken) {
+            setStatus('❌ Unable to acquire Microsoft 365 token', 'err');
+            return;
+          }
+
           showLoading("Updating tags ");
+
           const profile = await widget.getCustomerProfile();
           const chatId = profile?.chat?.chat_id || profile?.chat?.chatId || profile?.chat?.id || profile?.chat_id;
           const threadId = profile?.chat?.id || profile?.chat?.thread_id || profile?.chat?.threadId;
@@ -1212,7 +1235,8 @@
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "X-Webhook-Secret": WEBHOOK_SECRET
+              "X-Webhook-Secret": WEBHOOK_SECRET,
+              "Authorization": `Bearer ${accessToken}`
             },
             body: JSON.stringify(body)
           });
