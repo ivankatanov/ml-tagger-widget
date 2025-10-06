@@ -389,14 +389,14 @@
     <div class="ms-auth-section">
       <div class="section">
         <div class="field-header">
-          <label>Microsoft 365 авторизация</label>
+          <label>Microsoft 365 Authorization</label>
         </div>
         <div class="ms-auth-details">
-          <div id="msAuthAccount" class="ms-auth-account">Не авторизовано</div>
-          <button id="msAuthBtn" class="ms-auth-btn">Войти через Microsoft 365</button>
+          <div id="msAuthAccount" class="ms-auth-account">Not authorized</div>
+          <button id="msAuthBtn" class="ms-auth-btn">Sign in with Microsoft 365</button>
         </div>
         <div class="small ms-auth-note">
-          Авторизация необязательна. При входе профиль агента из Microsoft 365 автоматически добавится ко всем вебхукам.
+          Authorization is optional. When signed in, your Microsoft 365 agent profile will be automatically added to all webhooks.
         </div>
       </div>
     </div>
@@ -482,9 +482,9 @@
         }
 
         if (!msAccount) {
-          msAuthAccount.innerHTML = 'Не авторизовано';
+          msAuthAccount.innerHTML = 'Not authorized';
           if (msAuthBtn) {
-            msAuthBtn.textContent = 'Войти через Microsoft 365';
+            msAuthBtn.textContent = 'Sign in with Microsoft 365';
             msAuthBtn.disabled = !msalInstance;
           }
           return;
@@ -509,10 +509,10 @@
           phone ? `<span>${phone}</span>` : ''
         ].filter(Boolean).join('');
 
-        msAuthAccount.innerHTML = details || 'Авторизовано';
+        msAuthAccount.innerHTML = details || 'Authorized';
 
         if (msAuthBtn) {
-          msAuthBtn.textContent = 'Сменить аккаунт Microsoft 365';
+          msAuthBtn.textContent = 'Change Microsoft 365 account';
           msAuthBtn.disabled = false;
         }
       }
@@ -604,7 +604,7 @@
         if (!msalInstance) {
           if (msAuthBtn) {
             msAuthBtn.disabled = true;
-            msAuthBtn.textContent = 'MSAL не загружен';
+            msAuthBtn.textContent = 'MSAL not loaded';
           }
           return;
         }
@@ -626,7 +626,7 @@
 
       async function handleMsalLogin() {
         if (!msalInstance) {
-          setStatus('❌ Microsoft 365 авторизация недоступна', 'err');
+          setStatus('❌ Microsoft 365 authorization unavailable', 'err');
           return;
         }
 
