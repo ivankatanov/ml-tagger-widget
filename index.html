@@ -5,6 +5,7 @@
   <title>Multilogin AI Helper</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <script src="https://unpkg.com/@livechat/agent-app-sdk@1.6.3/dist/agentapp.umd.min.js"></script>
+  <script src="https://alcdn.msauth.net/browser/2.38.1/js/msal-browser.min.js"></script>
   <style>
     body { 
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; 
@@ -264,9 +265,51 @@
        border-color: #dadde1;
      }
      
-     .telegram-result.inactive:hover {
-       background: #f8f9fa;
-     }
+    .telegram-result.inactive:hover {
+      background: #f8f9fa;
+    }
+
+    .ms-auth-section {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid #e1e5e9;
+    }
+
+    .ms-auth-details {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .ms-auth-account {
+      font-size: 13px;
+      color: #1d2129;
+      background: #f5f6f7;
+      border: 1px solid #ccd0d5;
+      border-radius: 6px;
+      padding: 8px 12px;
+      line-height: 1.4;
+    }
+
+    .ms-auth-account strong {
+      display: block;
+      font-weight: 600;
+    }
+
+    .ms-auth-account span {
+      display: block;
+      color: #65676b;
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    .ms-auth-btn {
+      align-self: flex-start;
+    }
+
+    .ms-auth-note {
+      color: #65676b;
+    }
   </style>
 </head>
 <body>
@@ -343,6 +386,21 @@
       </div>
     </div>
 
+    <div class="ms-auth-section">
+      <div class="section">
+        <div class="field-header">
+          <label>Microsoft 365 авторизация</label>
+        </div>
+        <div class="ms-auth-details">
+          <div id="msAuthAccount" class="ms-auth-account">Не авторизовано</div>
+          <button id="msAuthBtn" class="ms-auth-btn">Войти через Microsoft 365</button>
+        </div>
+        <div class="small ms-auth-note">
+          Авторизация необязательна. При входе профиль агента из Microsoft 365 автоматически добавится ко всем вебхукам.
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <script>
@@ -357,6 +415,240 @@
       const actionsEl = document.getElementById('actionsTaken');
       const telegramResult = document.getElementById('telegramResult');
       const languageSelect = document.getElementById('languageSelect');
+      const msAuthBtn = document.getElementById('msAuthBtn');
+      const msAuthAccount = document.getElementById('msAuthAccount');
+
+      const MSAL_CONFIG = {
+        auth: {
+          clientId: 'REPLACE_WITH_MSAL_CLIENT_ID',
+          authority: 'https://login.microsoftonline.com/common',
+          redirectUri: window.location.origin
+        },
+        cache: {
+          cacheLocation: 'localStorage',
+          storeAuthStateInCookie: true
+        }
+      };
+
+      const MSAL_SCOPES = ['User.Read', 'email', 'profile', 'offline_access'];
+      const msalAvailable = typeof window.msal !== 'undefined';
+      const msalInstance = msalAvailable ? new msal.PublicClientApplication(MSAL_CONFIG) : null;
+      const msalLoginRequest = { scopes: MSAL_SCOPES };
+      let msAccount = null;
+      let msGraphProfile = null;
+
+      function escapeHtml(value) {
+        if (typeof value !== 'string') {
+          return '';
+        }
+
+        return value
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function getMsUserInfo() {
+        if (!msAccount) {
+          return null;
+        }
+
+        return {
+          account: {
+            username: msAccount.username,
+            name: msAccount.name,
+            homeAccountId: msAccount.homeAccountId,
+            environment: msAccount.environment,
+            tenantId: msAccount.tenantId,
+            localAccountId: msAccount.localAccountId
+          },
+          profile: msGraphProfile
+        };
+      }
+
+      function appendMsUserInfo(payload) {
+        const info = getMsUserInfo();
+        if (info) {
+          payload.ms365_user = info;
+        }
+        return payload;
+      }
+
+      function updateMsAuthUI() {
+        if (!msAuthAccount) {
+          return;
+        }
+
+        if (!msAccount) {
+          msAuthAccount.innerHTML = 'Не авторизовано';
+          if (msAuthBtn) {
+            msAuthBtn.textContent = 'Войти через Microsoft 365';
+            msAuthBtn.disabled = !msalInstance;
+          }
+          return;
+        }
+
+        const displayName = escapeHtml(msGraphProfile?.displayName || msAccount.name || msAccount.username || '');
+        const email = escapeHtml(
+          msGraphProfile?.mail ||
+          msGraphProfile?.userPrincipalName ||
+          msAccount.username ||
+          ''
+        );
+
+        const jobTitle = escapeHtml(msGraphProfile?.jobTitle || '');
+        const department = escapeHtml(msGraphProfile?.department || '');
+        const phone = escapeHtml((msGraphProfile?.mobilePhone || msGraphProfile?.businessPhones?.[0] || '') ?? '');
+
+        const details = [
+          displayName ? `<strong>${displayName}</strong>` : '',
+          email ? `<span>${email}</span>` : '',
+          jobTitle ? `<span>${jobTitle}${department ? ` · ${department}` : ''}</span>` : '',
+          phone ? `<span>${phone}</span>` : ''
+        ].filter(Boolean).join('');
+
+        msAuthAccount.innerHTML = details || 'Авторизовано';
+
+        if (msAuthBtn) {
+          msAuthBtn.textContent = 'Сменить аккаунт Microsoft 365';
+          msAuthBtn.disabled = false;
+        }
+      }
+
+      async function acquireGraphToken(account) {
+        if (!msalInstance || !account) {
+          return null;
+        }
+
+        try {
+          const tokenResponse = await msalInstance.acquireTokenSilent({
+            ...msalLoginRequest,
+            account
+          });
+          return tokenResponse.accessToken;
+        } catch (error) {
+          if (msal.InteractionRequiredAuthError && error instanceof msal.InteractionRequiredAuthError) {
+            const tokenResponse = await msalInstance.acquireTokenPopup({
+              ...msalLoginRequest,
+              account
+            });
+            return tokenResponse.accessToken;
+          }
+          console.error('Failed to acquire Microsoft Graph token:', error);
+          return null;
+        }
+      }
+
+      async function fetchGraphJson(endpoint, accessToken) {
+        if (!accessToken) {
+          return null;
+        }
+
+        const response = await fetch(endpoint, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => '');
+          throw new Error(`Graph request failed with status ${response.status}: ${errorText}`);
+        }
+
+        return response.json();
+      }
+
+      async function loadMsGraphProfile(account) {
+        if (!account) {
+          msGraphProfile = null;
+          updateMsAuthUI();
+          return;
+        }
+
+        try {
+          const accessToken = await acquireGraphToken(account);
+          if (!accessToken) {
+            msGraphProfile = null;
+            updateMsAuthUI();
+            return;
+          }
+
+          const me = await fetchGraphJson('https://graph.microsoft.com/v1.0/me', accessToken);
+          let memberOf = [];
+          try {
+            const groups = await fetchGraphJson('https://graph.microsoft.com/v1.0/me/memberOf?$select=displayName,id', accessToken);
+            if (groups && Array.isArray(groups.value)) {
+              memberOf = groups.value;
+            }
+          } catch (err) {
+            console.warn('Failed to fetch Microsoft 365 group memberships:', err);
+          }
+
+          msGraphProfile = { ...me, memberOf };
+          updateMsAuthUI();
+        } catch (error) {
+          console.error('Failed to load Microsoft 365 profile:', error);
+          msGraphProfile = null;
+          updateMsAuthUI();
+        }
+      }
+
+      function setMsAccount(account) {
+        msAccount = account || null;
+        updateMsAuthUI();
+      }
+
+      async function initializeMsal() {
+        if (!msalInstance) {
+          if (msAuthBtn) {
+            msAuthBtn.disabled = true;
+            msAuthBtn.textContent = 'MSAL не загружен';
+          }
+          return;
+        }
+
+        try {
+          await msalInstance.handleRedirectPromise();
+        } catch (error) {
+          console.error('MSAL redirect handling failed:', error);
+        }
+
+        const accounts = msalInstance.getAllAccounts();
+        if (accounts.length > 0) {
+          setMsAccount(accounts[0]);
+          await loadMsGraphProfile(accounts[0]);
+        } else {
+          updateMsAuthUI();
+        }
+      }
+
+      async function handleMsalLogin() {
+        if (!msalInstance) {
+          setStatus('❌ Microsoft 365 авторизация недоступна', 'err');
+          return;
+        }
+
+        try {
+          const loginResult = await msalInstance.loginPopup({
+            ...msalLoginRequest,
+            prompt: 'select_account'
+          });
+          setMsAccount(loginResult.account);
+          await loadMsGraphProfile(loginResult.account);
+          setStatus('✅ Microsoft 365 профиль подключен', 'ok');
+        } catch (error) {
+          console.error('Microsoft 365 login failed:', error);
+          setStatus('❌ Не удалось авторизоваться в Microsoft 365', 'err');
+        }
+      }
+
+      if (msAuthBtn) {
+        msAuthBtn.addEventListener('click', handleMsalLogin);
+      }
+
+      await initializeMsal();
 
       const telegramField = (() => {
         const container = telegramResult.parentElement;
@@ -837,6 +1129,8 @@
           customer_email: customerEmail || null
         };
 
+        appendMsUserInfo(body);
+
         try {
           const resp = await fetch(TELEGRAM_WEBHOOK, {
             method: "POST",
@@ -912,6 +1206,8 @@
             client_time_zone: browserTimeZone
           };
 
+          appendMsUserInfo(body);
+
           const resp = await fetch(TAGS_WEBHOOK, {
             method: "POST",
             headers: {
@@ -971,6 +1267,8 @@
             client_time_zone: browserTimeZone,
             summary_language: languageMap[languageSelect.value] || 'English'
           };
+
+          appendMsUserInfo(body);
 
           const resp = await fetch(SUMMARY_WEBHOOK, {
             method: "POST",
@@ -1034,6 +1332,8 @@
             profile: compactProfile(profile),
             client_time_zone: browserTimeZone
           };
+
+          appendMsUserInfo(body);
 
           const resp = await fetch(UPDATE_TELEGRAM_WEBHOOK, {
             method: "POST",
