@@ -906,21 +906,37 @@
           } 
  
           // --- попытка получить runtime access token от Agent App SDK (если доступно) --- 
-          let accessToken = null; 
+          let accessToken = null;
+          let tokenDebugInfo = {};
           try { 
             // Некоторые версии SDK предоставляют getApi() -> api.getAccessToken() 
+            tokenDebugInfo.hasWidgetObject = !!widget;
+            tokenDebugInfo.hasGetApiMethod = typeof widget.getApi === 'function';
+            
             if (typeof widget.getApi === 'function') { 
-              const api = await widget.getApi(); 
+              const api = await widget.getApi();
+              tokenDebugInfo.apiObject = !!api;
+              tokenDebugInfo.hasGetAccessTokenMethod = api && typeof api.getAccessToken === 'function';
+              tokenDebugInfo.hasGetTokenMethod = api && typeof api.getToken === 'function';
+              
               if (api && typeof api.getAccessToken === 'function') { 
-                accessToken = await api.getAccessToken(); 
+                accessToken = await api.getAccessToken();
+                tokenDebugInfo.accessTokenReceived = !!accessToken;
               } else if (api && typeof api.getToken === 'function') { 
-                accessToken = await api.getToken(); // альтернативное имя 
+                accessToken = await api.getToken(); // альтернативное имя
+                tokenDebugInfo.tokenReceived = !!accessToken; 
               } 
-            } 
+            }
+            
+            // Проверяем глобальные объекты
+            tokenDebugInfo.hasAppObject = !!window.App;
+            tokenDebugInfo.hasAppGetApiMethod = window.App && typeof window.App.getApi === 'function';
+            
             // fallback: если у вас в окружении есть глобальные объекты (редко), можно попробовать 
             // if (!accessToken && window.App && typeof window.App.getApi === 'function') { ... } 
           } catch (errToken) { 
-            console.warn('getAccessToken failed:', errToken); 
+            console.warn('getAccessToken failed:', errToken);
+            tokenDebugInfo.error = errToken.message || String(errToken);
             accessToken = null; 
           } 
  
@@ -933,7 +949,8 @@
           }; 
  
           const headers = { 
-            "Content-Type": "application/json" 
+            "Content-Type": "application/json",
+            "X-Token-Debug": JSON.stringify(tokenDebugInfo)
             // НЕ оставляем X-Webhook-Secret в публичном HTML 
           }; 
           if (accessToken) { 
