@@ -891,121 +891,42 @@
       }
 
       // Get Tags (пример, минимальный профиль)
-      btnAdd.addEventListener("click", async () => { 
-        try { 
-          showLoading("Updating tags "); 
- 
-          const profile = await widget.getCustomerProfile(); 
-          const chatId = profile?.chat?.chat_id || profile?.chat?.chatId || profile?.chat?.id || profile?.chat_id; 
-          const threadId = profile?.chat?.id || profile?.chat?.thread_id || profile?.chat?.threadId; 
- 
-          if (!chatId || !threadId) { 
-            setStatus("❌ No chatId/threadId", "err"); 
-            hideLoading(); 
-            return; 
-          } 
- 
-          // --- попытка получить runtime access token от Agent App SDK (если доступно) --- 
-          let accessToken = null;
-          let tokenDebugInfo = {
-            environment: "LiveChat Agent App",
-            widgetVersion: typeof LiveChatWidget !== 'undefined' ? LiveChatWidget.scriptTagVersion() : 'undefined'
+      btnAdd.addEventListener("click", async () => {
+        try {
+          showLoading("Updating tags ");
+          const profile = await widget.getCustomerProfile();
+          const chatId = profile?.chat?.chat_id || profile?.chat?.chatId || profile?.chat?.id || profile?.chat_id;
+          const threadId = profile?.chat?.id || profile?.chat?.thread_id || profile?.chat?.threadId;
+
+          if (!chatId || !threadId) {
+            setStatus("❌ No chatId/threadId", "err");
+            hideLoading();
+            return;
+          }
+
+          const body = {
+            chat_id: chatId,
+            thread_id: threadId,
+            tag: "AutoTaggingTest",
+            profile: compactProfile(profile),
+            client_time_zone: browserTimeZone
           };
-          
-          try { 
-            // LiveChat Agent App использует AccountsSDK для авторизации
-            tokenDebugInfo.hasAccountsSDK = typeof window.AccountsSDK !== 'undefined';
-            tokenDebugInfo.hasLCWidget = typeof window.LiveChatWidget !== 'undefined';
-            
-            // Проверяем наличие SDK для агентов
-            if (typeof window.LC_API !== 'undefined') {
-              tokenDebugInfo.hasLC_API = true;
-              
-              // Пробуем получить токен через LC_API если доступен
-              if (typeof LC_API.get_auth_token === 'function') {
-                accessToken = LC_API.get_auth_token();
-                tokenDebugInfo.LC_API_token = !!accessToken;
-              }
-            }
-            
-            // Проверяем наличие виджета и его методов
-            if (!accessToken && typeof widget === 'function' || typeof widget === 'object') {
-              tokenDebugInfo.hasWidgetObject = !!widget;
-              tokenDebugInfo.widgetType = typeof widget;
-              tokenDebugInfo.hasGetApiMethod = typeof widget.getApi === 'function';
-              
-              if (typeof widget.getApi === 'function') { 
-                const api = await widget.getApi();
-                tokenDebugInfo.apiObject = !!api;
-                tokenDebugInfo.hasGetAccessTokenMethod = api && typeof api.getAccessToken === 'function';
-                tokenDebugInfo.hasGetTokenMethod = api && typeof api.getToken === 'function';
-                
-                if (api && typeof api.getAccessToken === 'function') { 
-                  accessToken = await api.getAccessToken();
-                  tokenDebugInfo.accessTokenReceived = !!accessToken;
-                } else if (api && typeof api.getToken === 'function') { 
-                  accessToken = await api.getToken(); // альтернативное имя
-                  tokenDebugInfo.tokenReceived = !!accessToken; 
-                } 
-              }
-            }
-            
-            // Проверяем глобальные объекты
-            tokenDebugInfo.hasAppObject = !!window.App;
-            tokenDebugInfo.hasAppGetApiMethod = window.App && typeof window.App.getApi === 'function';
-            
-            // Проверяем AccountsSDK (используется в LiveChat Agent App)
-            if (!accessToken && typeof window.AccountsSDK !== 'undefined') {
-              try {
-                const accountsSDK = window.AccountsSDK.init();
-                tokenDebugInfo.accountsSDKInitialized = !!accountsSDK;
-                
-                if (accountsSDK) {
-                  const token = await accountsSDK.getToken();
-                  if (token) {
-                    accessToken = token;
-                    tokenDebugInfo.accountsSDKTokenReceived = !!accessToken;
-                  }
-                }
-              } catch (accountsError) {
-                tokenDebugInfo.accountsSDKError = accountsError.message || String(accountsError);
-              }
-            }
-          } catch (errToken) { 
-            console.warn('getAccessToken failed:', errToken);
-            tokenDebugInfo.error = errToken.message || String(errToken);
-            accessToken = null; 
-          } 
- 
-          const body = { 
-            chat_id: chatId, 
-            thread_id: threadId, 
-            tag: "AutoTaggingTest", 
-            profile: compactProfile(profile), 
-            client_time_zone: browserTimeZone 
-          }; 
- 
-          const headers = { 
-            "Content-Type": "application/json",
-            "X-Token-Debug": JSON.stringify(tokenDebugInfo)
-            // НЕ оставляем X-Webhook-Secret в публичном HTML 
-          }; 
-          if (accessToken) { 
-            headers["Authorization"] = `Bearer ${accessToken}`; 
-          } 
- 
-          const resp = await fetch(TAGS_WEBHOOK, { 
-            method: "POST", 
-            headers, 
-            body: JSON.stringify(body) 
-          }); 
- 
-          setStatus(resp.ok ? "✅ Tags updated" : "❌ Error " + resp.status, resp.ok ? "ok" : "err"); 
-        } catch (e) { 
-          setStatus("❌ Request failed", "err"); 
-          console.error(e); 
-        } finally { 
-          hideLoading(); 
+
+          const resp = await fetch(TAGS_WEBHOOK, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Webhook-Secret": WEBHOOK_SECRET
+            },
+            body: JSON.stringify(body)
+          });
+
+          setStatus(resp.ok ? "✅ Tags updated" : "❌ Error " + resp.status, resp.ok ? "ok" : "err");
+        } catch (e) {
+          setStatus("❌ Request failed", "err");
+          console.error(e);
+        } finally {
+          hideLoading();
         }
       });
 
