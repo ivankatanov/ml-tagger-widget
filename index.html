@@ -281,6 +281,12 @@
       gap: 8px;
     }
 
+    .ms-auth-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
     .ms-auth-account {
       font-size: 13px;
       color: #1d2129;
@@ -305,6 +311,15 @@
 
     .ms-auth-btn {
       align-self: flex-start;
+    }
+
+    .ms-auth-btn.secondary {
+      background: #fff;
+      color: #e41e3f;
+    }
+
+    .ms-auth-btn.secondary:hover {
+      background: #f5f6f7;
     }
 
     .ms-auth-note {
@@ -342,7 +357,7 @@
       </select>
     </div>
 
-    <div id="status">Widget loaded ✅</div>
+    <div id="status">🔒 Sign in with Microsoft 365 to start</div>
     <div id="loadingIndicator" style="display:none; margin:16px 0;">
       <div class="spinner"></div>
       <p class="loading-text">Processing your request...</p>
@@ -393,10 +408,13 @@
         </div>
         <div class="ms-auth-details">
           <div id="msAuthAccount" class="ms-auth-account">Not authorized</div>
-          <button id="msAuthBtn" class="ms-auth-btn">Sign in with Microsoft 365</button>
+          <div class="ms-auth-actions">
+            <button id="msAuthBtn" class="ms-auth-btn">Sign in with Microsoft 365</button>
+            <button id="msSignOutBtn" class="ms-auth-btn secondary" hidden>Sign out</button>
+          </div>
         </div>
         <div class="small ms-auth-note">
-          Authorization is optional. When signed in, your Microsoft 365 agent profile will be automatically added to all webhooks.
+          Microsoft 365 authorization is required to use the widget features. Sign in to enable actions.
         </div>
       </div>
     </div>
@@ -416,7 +434,10 @@
       const telegramResult = document.getElementById('telegramResult');
       const languageSelect = document.getElementById('languageSelect');
       const msAuthBtn = document.getElementById('msAuthBtn');
+      const msSignOutBtn = document.getElementById('msSignOutBtn');
       const msAuthAccount = document.getElementById('msAuthAccount');
+      const msAuthNote = document.querySelector('.ms-auth-note');
+      const menuBtn = document.querySelector('.menu-btn');
 
       const MSAL_CONFIG = {
         auth: {
@@ -436,6 +457,38 @@
       const msalLoginRequest = { scopes: MSAL_SCOPES };
       let msAccount = null;
       let msGraphProfile = null;
+      let latestCustomerProfile = null;
+
+      function isAuthorized() {
+        return Boolean(msAccount);
+      }
+
+      async function ensureAccessToken({ action = 'use this feature', silent = false } = {}) {
+        if (!isAuthorized()) {
+          if (!silent) {
+            setStatus(`❌ Sign in with Microsoft 365 to ${action}`, 'err');
+          }
+          return null;
+        }
+
+        const token = await acquireGraphToken(msAccount);
+        if (!token && !silent) {
+          setStatus('❌ Unable to acquire Microsoft 365 token', 'err');
+        }
+        return token;
+      }
+
+      async function runPostAuthorizationTasks({ silentTokenFailure = false } = {}) {
+        if (!isAuthorized() || !latestCustomerProfile) {
+          return;
+        }
+
+        try {
+          await autoGetTelegram(latestCustomerProfile, { silentTokenFailure });
+        } catch (error) {
+          console.error('Auto Telegram fetch after authorization failed:', error);
+        }
+      }
 
       function escapeHtml(value) {
         if (typeof value !== 'string') {
@@ -477,25 +530,71 @@
       }
 
       function updateMsAuthUI() {
-        const isAuthorized = Boolean(msAccount);
+        const authorized = Boolean(msAccount);
 
         if (btnAdd) {
-          btnAdd.disabled = !isAuthorized;
-          btnAdd.title = isAuthorized
+          btnAdd.disabled = !authorized;
+          btnAdd.title = authorized
             ? 'Request tags for the current chat'
             : 'Sign in with Microsoft 365 to enable tag updates';
+        }
+
+        if (btnSumm) {
+          btnSumm.disabled = !authorized;
+          btnSumm.title = authorized
+            ? 'Generate summary for the current chat'
+            : 'Sign in with Microsoft 365 to generate summaries';
+        }
+
+        if (btnUpdateTelegram) {
+          btnUpdateTelegram.disabled = !authorized;
+          btnUpdateTelegram.title = authorized
+            ? 'Update Telegram username in PipeDrive'
+            : 'Sign in with Microsoft 365 to update Telegram username';
+        }
+
+        if (languageSelect) {
+          languageSelect.disabled = !authorized;
+          languageSelect.title = authorized
+            ? 'Choose summary language'
+            : 'Sign in with Microsoft 365 to adjust summary language';
+        }
+
+        if (menuBtn) {
+          menuBtn.disabled = !authorized;
+          menuBtn.title = authorized
+            ? 'Open actions menu'
+            : 'Sign in with Microsoft 365 to access actions';
+          if (!authorized) {
+            const dropdown = document.getElementById('dropdownMenu');
+            if (dropdown) {
+              dropdown.classList.remove('show');
+            }
+          }
+        }
+
+        if (msSignOutBtn) {
+          msSignOutBtn.hidden = !authorized;
+          msSignOutBtn.disabled = !authorized;
+        }
+
+        if (msAuthBtn) {
+          msAuthBtn.textContent = authorized ? 'Switch Microsoft 365 account' : 'Sign in with Microsoft 365';
+          msAuthBtn.disabled = !msalInstance;
+        }
+
+        if (msAuthNote) {
+          msAuthNote.textContent = authorized
+            ? 'You are signed in with Microsoft 365. All widget actions are enabled.'
+            : 'Microsoft 365 authorization is required to use the widget features. Sign in to enable actions.';
         }
 
         if (!msAuthAccount) {
           return;
         }
 
-        if (!msAccount) {
+        if (!authorized) {
           msAuthAccount.innerHTML = 'Not authorized';
-          if (msAuthBtn) {
-            msAuthBtn.textContent = 'Sign in with Microsoft 365';
-            msAuthBtn.disabled = !msalInstance;
-          }
           return;
         }
 
@@ -519,11 +618,6 @@
         ].filter(Boolean).join('');
 
         msAuthAccount.innerHTML = details || 'Authorized';
-
-        if (msAuthBtn) {
-          msAuthBtn.textContent = 'Change Microsoft 365 account';
-          msAuthBtn.disabled = false;
-        }
       }
 
       async function acquireGraphToken(account) {
@@ -628,6 +722,8 @@
         if (accounts.length > 0) {
           setMsAccount(accounts[0]);
           await loadMsGraphProfile(accounts[0]);
+          setStatus('✅ Microsoft 365 session restored', 'ok');
+          await runPostAuthorizationTasks({ silentTokenFailure: true });
         } else {
           updateMsAuthUI();
         }
@@ -646,6 +742,7 @@
           });
           setMsAccount(loginResult.account);
           await loadMsGraphProfile(loginResult.account);
+          await runPostAuthorizationTasks();
           setStatus('✅ Microsoft 365 profile connected', 'ok');
         } catch (error) {
           console.error('Microsoft 365 login failed:', error);
@@ -653,8 +750,37 @@
         }
       }
 
+      async function handleMsalLogout() {
+        if (!msalInstance) {
+          setStatus('❌ Microsoft 365 authorization unavailable', 'err');
+          return;
+        }
+
+        if (!msAccount) {
+          clearSummary({ statusText: '🔒 Sign in with Microsoft 365 to start', statusClass: '' });
+          updateMsAuthUI();
+          return;
+        }
+
+        try {
+          await msalInstance.logoutPopup({ account: msAccount });
+        } catch (error) {
+          console.error('Microsoft 365 logout failed:', error);
+          setStatus('❌ Failed to sign out from Microsoft 365', 'err');
+          return;
+        }
+
+        msGraphProfile = null;
+        setMsAccount(null);
+        clearSummary({ statusText: 'ℹ️ Signed out from Microsoft 365. Sign in again to continue.', statusClass: '' });
+      }
+
       if (msAuthBtn) {
         msAuthBtn.addEventListener('click', handleMsalLogin);
+      }
+
+      if (msSignOutBtn) {
+        msSignOutBtn.addEventListener('click', handleMsalLogout);
       }
 
       updateMsAuthUI();
@@ -807,6 +933,10 @@
        window.updateSummary = function() {
          document.getElementById('dropdownMenu').classList.remove('show');
          // Trigger the same action as Summarize button
+         if (btnSumm.disabled) {
+           setStatus('❌ Sign in with Microsoft 365 to generate summaries', 'err');
+           return;
+         }
          btnSumm.click();
        };
        
@@ -1096,10 +1226,10 @@
       }
 
       // Функция для сброса саммари и Telegram при переключении диалога
-      function clearSummary() {
+      function clearSummary({ statusText = 'Ready', statusClass = '' } = {}) {
         const issueSummary = document.getElementById('issueSummary');
         const actionsTaken = document.getElementById('actionsTaken');
-        
+
         if (issueSummary) {
           issueSummary.value = '';
           issueSummary.placeholder = 'Issue summary will appear here...';
@@ -1113,21 +1243,30 @@
         // Сбрасываем поле Telegram
         telegramField.clear();
         telegramField.container.classList.add('inactive');
-        
+
         // Сбрасываем статус на начальный
-        setStatus('Ready');
-        
+        setStatus(statusText, statusClass);
+
         console.log('Summary and Telegram cleared for new dialog');
       }
 
       // Функция для автоматического получения Telegram
-      async function autoGetTelegram(profile) {
+      async function autoGetTelegram(profile, { silentTokenFailure = false } = {}) {
         const chatId = profile?.chat?.chat_id || profile?.chat?.chatId || profile?.chat?.id || profile?.chat_id;
         const threadId = profile?.chat?.id || profile?.chat?.thread_id || profile?.chat?.threadId;
         const customerEmail = extractCustomerEmail(profile);
 
         if (!chatId || !threadId) {
           console.log('Missing required data for auto Telegram fetch:', { chatId, threadId, customerEmail });
+          return;
+        }
+
+        const accessToken = await ensureAccessToken({
+          action: 'load Telegram username',
+          silent: silentTokenFailure
+        });
+
+        if (!accessToken) {
           return;
         }
 
@@ -1146,7 +1285,8 @@
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "X-Webhook-Secret": WEBHOOK_SECRET
+              "X-Webhook-Secret": WEBHOOK_SECRET,
+              "Authorization": `Bearer ${accessToken}`
             },
             body: JSON.stringify(body)
           });
@@ -1171,15 +1311,28 @@
       let widget;
       try {
         widget = await LiveChat.createDetailsWidget();
-        setStatus("Widget initialized ✓", "ok");
-        
+        setStatus(
+          isAuthorized() ? 'Ready' : '🔒 Sign in with Microsoft 365 to start',
+          isAuthorized() ? '' : ''
+        );
+
         // Автоматическое получение Telegram и сброс саммари при открытии диалога
         widget.on('customer_profile', async (profile) => {
           console.log('Customer profile event received:', profile);
-          
+          latestCustomerProfile = profile;
+
+          const authorized = isAuthorized();
+
           // Сбрасываем саммари при переключении диалога
-          clearSummary();
-          
+          clearSummary({
+            statusText: authorized ? 'Ready' : '🔒 Sign in with Microsoft 365 to load customer data',
+            statusClass: authorized ? '' : ''
+          });
+
+          if (!authorized) {
+            return;
+          }
+
           try {
             await autoGetTelegram(profile);
           } catch (error) {
@@ -1196,16 +1349,10 @@
 
       // Get Tags (пример, минимальный профиль)
       btnAdd.addEventListener("click", async () => {
+        let accessToken;
         try {
-          if (!msAccount) {
-            setStatus('❌ Sign in with Microsoft 365 to add tags', 'err');
-            return;
-          }
-
-          const accessToken = await acquireGraphToken(msAccount);
-
+          accessToken = await ensureAccessToken({ action: 'add tags' });
           if (!accessToken) {
-            setStatus('❌ Unable to acquire Microsoft 365 token', 'err');
             return;
           }
 
@@ -1252,7 +1399,13 @@
 
       // Summarize flow: отправляем webhook, сервер вытягивает историю и возвращает готовое summary
       btnSumm.addEventListener("click", async () => {
+        let accessToken;
         try {
+          accessToken = await ensureAccessToken({ action: 'generate a summary' });
+          if (!accessToken) {
+            return;
+          }
+
           showLoading("Preparing summary request");
           const profile = await widget.getCustomerProfile();
           const chatId = profile?.chat?.chat_id || profile?.chat?.chatId || profile?.chat?.id || profile?.chat_id;
@@ -1298,7 +1451,8 @@
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "X-Webhook-Secret": WEBHOOK_SECRET
+              "X-Webhook-Secret": WEBHOOK_SECRET,
+              "Authorization": `Bearer ${accessToken}`
             },
             body: JSON.stringify(body)
           });
@@ -1325,7 +1479,13 @@
 
       // Update Telegram flow: отправляем webhook для обновления Telegram пользователя в PipeDrive
       btnUpdateTelegram.addEventListener("click", async () => {
+        let accessToken;
         try {
+          accessToken = await ensureAccessToken({ action: 'update Telegram username' });
+          if (!accessToken) {
+            return;
+          }
+
           showLoading("Updating Telegram username");
           const profile = await widget.getCustomerProfile();
           const chatId = profile?.chat?.chat_id || profile?.chat?.chatId || profile?.chat?.id || profile?.chat_id;
@@ -1363,7 +1523,8 @@
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "X-Webhook-Secret": WEBHOOK_SECRET
+              "X-Webhook-Secret": WEBHOOK_SECRET,
+              "Authorization": `Bearer ${accessToken}`
             },
             body: JSON.stringify(body)
           });
